@@ -81,4 +81,42 @@ class TestPerformance:
             delta <= 0.1 for delta in deltas
         ), f"Update interval exceeded 100 ms: {deltas}"
 
+    # LGCS-PR003:
+    # Verify that gear state indications are updated at a minimum rate of 4 Hz
+    # while the system is in a steady UP or DOWN state.
+    def test_state_updates_at_minimum_4hz_in_steady_states():
+        controller, clock = make_controller_with_fake_clock()
+
+        # Confirm the controller begins in a steady (non-transitioning) state.
+        assert controller.state.name.startswith("UP") or controller.state.name.startswith("DOWN")
+
+        update_timestamps: list[float] = []
+
+        # Instrument the update path to record indication update timing.
+        original_update = controller.update
+
+        def instrumented_update():
+            update_timestamps.append(clock())
+            original_update()
+
+        controller.update = instrumented_update
+
+        # Simulate steady-state operation over a bounded interval.
+        SIM_DURATION_MS = 2000
+        STEP_MS = 100
+
+        steps = SIM_DURATION_MS // STEP_MS
+        for _ in range(steps):
+            controller.update()
+            clock._t += STEP_MS / 1000.0
+
+        # Calculate elapsed time between consecutive indication updates.
+        deltas = [t2 - t1 for t1, t2 in zip(update_timestamps, update_timestamps[1:])]
+
+        # Assert compliance with minimum 4 Hz update rate (≤ 250 ms interval).
+        assert all(delta <= 0.25 for delta in deltas), (
+            f"Indication update interval exceeded 250 ms in steady state: {deltas}"
+        )
+
+
         
