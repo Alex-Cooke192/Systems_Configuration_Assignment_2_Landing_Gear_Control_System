@@ -32,23 +32,23 @@ class LandingGearController:
         if self._state == GearState.UP_LOCKED:
             # Initiates extension when down command is present
             if self.down_requested():
-                self.command_gear_down(True)
+                self.command_gear_down()
                 self.enter_state(GearState.TRANSITIONING_DOWN)
             return
 
         if self._state == GearState.TRANSITIONING_DOWN:
             # Maintains extension command until deploy time elapses
-            self.command_gear_down(True)
+            self.command_gear_down()
 
             # Completes transition when computed deploy time has elapsed
             if elapsed_s >= self._deploy_time_s:
-                self.command_gear_down(False)
+                self.command_gear_down()
                 self.enter_state(GearState.DOWN_LOCKED)
             return
 
         if self._state == GearState.DOWN_LOCKED:
             # Holds safe actuator state while gear is treated as locked down
-            self.command_gear_down(False)
+            self.command_gear_down()
             return
 
     def command_gear_down(self):
