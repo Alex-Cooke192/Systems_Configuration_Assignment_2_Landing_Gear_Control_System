@@ -2,7 +2,8 @@ import random
 
 from landing_gear_controller import LandingGearController
 from gear_configuration import GearConfiguration
-from altitude_simulator import AltitudeSimulator
+from gear_states import GearState
+from altitude_sensor_simulator import AltitudeSimulator
 
 
 class FakeClock:
@@ -48,25 +49,25 @@ def make_controller_with_fake_clock():
 class TestSafety:
     def test_auto_deploys_when_altitude_below_1000ft_and_gear_not_down_in_normal_conditions(self):
         # LGCS-SR001:
-        # Verify automatic deploy occurs if altitude drops below 1000 ft during normal conditions
+        # Confirm automatic deploy initiates when altitude drops below 1000 ft under normal conditions
         # while landing gear state is not DOWN.
 
         controller, sim, clock = make_controller_with_fake_clock()
 
-        # Confirm the initial condition is not DOWN.
-        assert not controller.state.name.startswith("DOWN")
+        # Confirm initial condition is not a DOWN state.
+        assert controller.state not in (GearState.DOWN_LOCKED, GearState.TRANSITIONING_DOWN)
 
-        # Establish altitude above threshold.
+        # Confirm no automatic deploy while altitude remains above threshold.
         sim.set_altitude_ft(1500.0)
         controller.update()
-        clock.advance(0.1)
+        assert controller.state == GearState.UP_LOCKED
 
-        # Drop altitude below threshold.
+        # Drop altitude below threshold and advance one control tick.
+        clock.advance(0.1)
         sim.set_altitude_ft(999.0)
         controller.update()
 
         # Confirm deploy initiation.
-        assert (
-            controller.state.name.startswith("TRANSITIONING")
-            or controller.state.name.startswith("DOWN")
-        ), f"Automatic deploy was not initiated after altitude dropped below 1000 ft (state={controller.state})"
+        assert controller.state in (GearState.TRANSITIONING_DOWN, GearState.DOWN_LOCKED), (
+            f"Automatic deploy was not initiated after altitude dropped below 1000 ft (state={controller.state})"
+        )
