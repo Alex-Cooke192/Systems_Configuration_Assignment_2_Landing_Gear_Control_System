@@ -79,8 +79,8 @@ def main():
     # Orchestrates application startup sequence
     setup_logging()
     setup_signal_handlers()
-    initialize()
-    run()
+    controller = initialize()
+    run(controller)
 
 
 if __name__ == "__main__":
