@@ -49,12 +49,20 @@ from gear_configuration import GearConfiguration
 from gear_states import GearState
 
 class LandingGearController:
-    def __init__(self, config: GearConfiguration, clock=time.monotonic):
+    def __init__(self, 
+                 config: GearConfiguration, 
+                 clock=time.monotonic, 
+                 altitude_provider = None, 
+                 normal_conditions_provider = None):
         self._config = config
         self._state = GearState.UP_LOCKED
 
         self._clock = clock
         self._state_entered_at = self._clock()
+
+        # Altitude instrumentation
+        self.altitude_provider = altitude_provider
+        self.normal_conditions_provider = normal_conditions_provider
 
         self._weight_on_wheels:bool = True # Assumed to be on ground at startup
 
@@ -206,7 +214,6 @@ class LandingGearController:
         self._actuate_up(False)
         return False
 
-
     def _actuate_down(self, enabled: bool) -> None:
         if enabled and self._deploy_cmd_ts is not None and self._deploy_actuation_ts is None:
             self._deploy_actuation_ts = self._clock()
@@ -226,6 +233,33 @@ class LandingGearController:
         if self._retract_cmd_ts is None or self._retract_actuation_ts is None:
             return None
         return (self._retract_actuation_ts - self._retract_cmd_ts) * 1000.0
+
+    def landing_gear_auto_deploy(self) -> None:
+        # LGCS-SR001:
+        # Initiate automatic deploy if altitude is below 1000 ft under normal conditions
+        # and the gear is not in a DOWN state.
+        altitude_ft = self._altitude_provider()
+        normal = self._normal_conditions_provider()
+
+        if altitude_ft is None:
+            return
+
+        if not normal:
+            return
+
+        if altitude_ft >= 1000:
+            return
+
+        if self.state in (GearState.DOWN_LOCKED, GearState.TRANSITIONING_DOWN):
+            return
+
+        if self._auto_deploy_latched:
+            return
+
+        accepted = self.command_gear_down()
+        if accepted:
+            self._auto_deploy_latched = True
+
 
 
 
