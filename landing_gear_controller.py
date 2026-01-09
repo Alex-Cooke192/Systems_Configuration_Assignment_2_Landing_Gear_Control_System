@@ -85,7 +85,7 @@ class LandingGearController:
         
 
 
-controller = LandingGearController(cfg)
+controller = LandingGearController()
 controller._deploy_requested = True
 
 
