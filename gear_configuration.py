@@ -24,3 +24,8 @@ class GearConfiguration:
             extension_time_ms +
             self.lock_time_ms
         )
+    
+
+
+
+    
