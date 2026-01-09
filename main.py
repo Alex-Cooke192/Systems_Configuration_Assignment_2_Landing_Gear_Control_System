@@ -7,6 +7,8 @@ import logging
 import signal
 import sys
 import time
+from landing_gear_controller import LandingGearController
+from gear_configuration import GearConfiguration
 
 
 # Global execution flag controlling main loop state
@@ -37,22 +39,33 @@ def setup_logging():
 def initialize():
     # Initializes application resources and dependencies
     logging.info("Initializing application")
-    # Placeholder for resource setup
+
+    config = GearConfiguration(
+        name="LG-1",
+        pump_latency_ms=200,
+        actuator_speed_mm_per_100ms=50.0,
+        extension_distance_mm=500,
+        lock_time_ms=300,
+        requirement_time_ms=5000,
+    )
+
+    return LandingGearController(config)
 
 
-def cycle():
+def cycle(controller: LandingGearController):
     # Executes a single iteration of the main processing loop
     logging.debug("Executing cycle")
+    controller.update()
     # Placeholder for core workload
 
 
-def run(loop_sleep: float = 1.0):
+def run(controller, loop_sleep: float = 1.0,):
     # Drives the main execution loop and enforces error isolation
     logging.info("Starting main loop")
 
     while _running:
         try:
-            cycle()
+            cycle(controller)
         except Exception:
             # Captures unexpected failures without crashing the process
             logging.exception("Unhandled exception in cycle")
