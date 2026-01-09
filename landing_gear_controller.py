@@ -12,18 +12,30 @@ class LandingGearController:
         self._clock = clock
         self._state_entered_at = self._clock()
 
+        self._weight_on_wheels:bool = True # Assumed to be on ground at startup
+
         # Timing instrumentation
         self._deploy_cmd_ts: float | None = None
         self._deploy_transition_ts: float | None = None
+        
+        self._retract_cmd_ts: float | None = None
+        self._retract_transition_ts: float | None = None
 
         # Stores cached deploy timing derived from configuration
         self._deploy_time_s = self._config.compute_deploy_time_ms() / 1000.0
 
         # Stores request for deploy (eventually will be from the UI)
         self._deploy_requested = False
+        self._retract_requested = False
 
     def log(self, msg: str) -> None:
         print(msg)
+
+    def set_weight_on_wheels(self, wow:bool) -> None:
+        self._weight_on_wheels = wow
+    
+    def weight_on_wheels(self) -> bool:
+        return self._weight_on_wheels
 
     def enter_state(self, new_state: GearState):
         self._state = new_state
@@ -31,11 +43,20 @@ class LandingGearController:
     
     def down_requested(self) -> bool:
         return self._deploy_requested
+    
+    def up_requested(self) -> bool:
+        return self._retract_requested
 
     def update(self) -> None:
         # Advances landing gear state machine by one control tick
         now = self._clock()
         elapsed_s = now - self._state_entered_at
+
+        if self._state in (GearState.FAULT, GearState.ABNORMAL):
+            # FR004: Ignore transition up/down 
+            self._actuate_down(False)
+            self._actuate_up(False)
+            return
 
         if self._state == GearState.UP_LOCKED:
             if self.down_requested():
@@ -52,7 +73,22 @@ class LandingGearController:
             return
 
         if self._state == GearState.DOWN_LOCKED:
-            self._actuate_down(False)
+            if self.up_requested():
+                if self.weight_on_wheels(): # LGCS-FR002
+                    self.log("Retract inhibited: weight-on-wheels=TRUE")
+                    return
+                # Clear retract request so it doesnt keep trying
+                self._retract_requested = False
+                self.command_gear_up(True)
+            return
+        
+        if self._state == GearState.TRANSITIONING_UP:
+            # Maintain actuation during retraction
+            self._actuate_up(True)
+
+            # Complete transition using computed deploy time
+            if elapsed_s >= self._deploy_time_s:
+                self.command_gear_up(False)
             return
 
     def command_gear_down(self, enabled: bool) -> bool:
@@ -60,6 +96,11 @@ class LandingGearController:
         now = self._clock()
 
         if enabled:
+            # LGCS-FR004
+            if self._state in (GearState.FAULT, GearState.ABNORMAL):
+                self.log(f"Deploy ignored: state={self._state.name}")
+                return False
+            
             if self._state != GearState.UP_LOCKED:
                 self.log(f"Deploy rejected: state={self._state.name}")
                 return False
@@ -80,8 +121,47 @@ class LandingGearController:
         self._actuate_down(False)
         return False
     
+    # LGCS-FR002
+    def command_gear_up(self, enabled: bool) -> bool:
+        # Applies actuator command and performs any required state transition
+        now = self._clock()
+
+        if enabled:
+            # LGCS-FR004
+            if self._state in (GearState.FAULT, GearState.ABNORMAL):
+                self.log(f"Retract ignored: state={self._state.name}")
+                return False   
+                 
+            if self._state != GearState.DOWN_LOCKED:
+                self.log(f"Retract rejected: state={self._state.name}")
+                return False
+            
+            if self.weight_on_wheels():
+                self.log("Retract rejected: weight-on-wheels=TRUE")
+                return False
+            
+            self._retract_requested = False
+
+            self._retract_cmd_ts = now
+            self._retract_transition_ts = now
+            self._actuate_up(True)
+            self.enter_state(GearState.TRANSITIONING_UP)
+            return True
+
+        if self._state == GearState.TRANSITIONING_UP:
+            self._actuate_up(False)
+            self.enter_state(GearState.UP_LOCKED)
+            return True
+
+        self._actuate_up(False)
+        return False
+
+
     def _actuate_down(self, enabled: bool) -> None:
         self.log(f"Gear down actuator command: {enabled}")
+
+    def _actuate_up(self, enabled: bool) -> None:
+        self.log(f"Gear up actuator command: {enabled}")
         
 
 
