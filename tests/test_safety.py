@@ -5,7 +5,6 @@ from gear_configuration import GearConfiguration
 from gear_states import GearState
 from altitude_sensor_simulator import AltitudeSimulator
 
-
 class FakeClock:
     def __init__(self, start: float = 0.0):
         self._t = start
