@@ -90,8 +90,9 @@ class LandingGearController:
             self.enter_state(GearState.DOWN_LOCKED)
             return True
     
-    def _actuate_down():
-        pass
+    def _actuate_down(self, enabled: bool) -> None:
+        self.log(f"Gear down actuator command: {enabled}")
+        
 
 cfg = GearConfiguration(
     name="LG-1",
