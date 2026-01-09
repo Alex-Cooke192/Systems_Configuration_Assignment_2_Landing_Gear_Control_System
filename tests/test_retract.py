@@ -43,7 +43,7 @@ import pytest
 
 from gear_configuration import GearConfiguration
 from gear_states import GearState
-from landing_gear_controller import LandingGearController  # <-- change to your module name
+from landing_gear_controller import LandingGearController
 
 
 class FakeClock:
