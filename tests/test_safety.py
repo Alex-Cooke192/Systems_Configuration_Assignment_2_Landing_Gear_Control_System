@@ -1,5 +1,8 @@
+import random
+
 from landing_gear_controller import LandingGearController
 from gear_configuration import GearConfiguration
+from altitude_simulator import AltitudeSimulator
 
 
 class FakeClock:
@@ -25,47 +28,44 @@ def make_controller_with_fake_clock():
         requirement_time_ms=8000,
     )
 
-    controller = LandingGearController(config=config, clock=clock)
-    return controller, clock
+    sim = AltitudeSimulator(
+        clock=clock,
+        rng=random.Random(0),
+        min_alt=500.0,
+        max_alt=10_000.0,
+    )
 
-class testSafety:
-    def test_auto_deploys_when_altitude_below_1000ft_and_gear_not_down_in_normal_conditions():
+    controller = LandingGearController(
+        config=config,
+        clock=clock,
+        altitude_provider=sim.read_altitude_ft,
+        normal_conditions_provider=lambda: True,
+    )
+
+    return controller, sim, clock
+
+
+class TestSafety:
+    def test_auto_deploys_when_altitude_below_1000ft_and_gear_not_down_in_normal_conditions(self):
         # LGCS-SR001:
         # Verify automatic deploy occurs if altitude drops below 1000 ft during normal conditions
         # while landing gear state is not DOWN.
 
-        controller, clock = make_controller_with_fake_clock()
+        controller, sim, clock = make_controller_with_fake_clock()
 
-        # Establish a non-DOWN steady state as the precondition.
+        # Confirm the initial condition is not DOWN.
         assert not controller.state.name.startswith("DOWN")
 
-        # Provide normal-conditions input.
-        # Adaptation point: replace with the project's actual API for conditions.
-        if hasattr(controller, "set_flight_conditions"):
-            controller.set_flight_conditions(normal=True)
-        elif hasattr(controller, "normal_conditions"):
-            controller.normal_conditions = True
-
-        # Provide altitude input above threshold, then drop below threshold.
-        # Adaptation point: replace with the project's actual altitude injection API.
-        if hasattr(controller, "set_altitude_ft"):
-            controller.set_altitude_ft(1500)
-        elif hasattr(controller, "altitude_ft"):
-            controller.altitude_ft = 1500
-
+        # Establish altitude above threshold.
+        sim.set_altitude_ft(1500.0)
         controller.update()
-        clock._t += 0.1
+        clock.advance(0.1)
 
-        # Drop below 1000 ft at a point during flight.
-        if hasattr(controller, "set_altitude_ft"):
-            controller.set_altitude_ft(999)
-        elif hasattr(controller, "altitude_ft"):
-            controller.altitude_ft = 999
-
+        # Drop altitude below threshold.
+        sim.set_altitude_ft(999.0)
         controller.update()
 
-        # Verify the controller initiated deploy.
-        # Acceptance criteria can be "transition begins" or "deploy command issued", depending on implementation.
+        # Confirm deploy initiation.
         assert (
             controller.state.name.startswith("TRANSITIONING")
             or controller.state.name.startswith("DOWN")
