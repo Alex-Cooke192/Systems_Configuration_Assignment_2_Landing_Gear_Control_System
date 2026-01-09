@@ -15,6 +15,8 @@ class LandingGearController:
         self._state = GearState.UP_LOCKED
         self._clock = clock
 
+        self._state_entered_at = None
+
         # Timing instrumentation
         self._deploy_cmd_ts: float | None = None
         self._deploy_transition_ts: float | None = None
