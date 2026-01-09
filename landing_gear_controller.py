@@ -1,21 +1,15 @@
 ## Top file comment
 
 import time
-from enum import Enum, auto
 from gear_configuration import GearConfiguration
-
-class GearState(Enum):
-    UP_LOCKED = auto()
-    TRANSITIONING_DOWN = auto()
-    DOWN_LOCKED = auto()
+from gear_states import GearState
 
 class LandingGearController:
     def __init__(self, config: GearConfiguration, clock=time.monotonic):
         self._config = config
         self._state = GearState.UP_LOCKED
         self._clock = clock
-
-        self._state_entered_at = None
+        self._state_entered_at = self._clock()
 
         # Timing instrumentation
         self._deploy_cmd_ts: float | None = None
@@ -29,11 +23,11 @@ class LandingGearController:
 
     def enter_state(self, new_state: GearState):
         self._state = new_state
-        self._state_entered_at = self._clock
+        self._state_entered_at = self._clock()
 
     def update(self):
         # Advances landing gear state machine by one control tick
-        elapsed_s = self._clock - self._state_entered_at
+        elapsed_s = self._clock() - self._state_entered_at
 
         if self._state == GearState.UP_LOCKED:
             # Initiates extension when down command is present
