@@ -1,6 +1,8 @@
 ## Top file comment
 
 import time
+from enum import Enum, auto
+from gear_configuration import GearConfiguration
 
 class GearState(Enum):
     UP_LOCKED = auto()
@@ -8,11 +10,15 @@ class GearState(Enum):
     DOWN_LOCKED = auto()
 
 class LandingGearController:
-    def __init__(self):
+    def __init__(self, config: GearConfiguration):
+        self.config = config
         self.state = GearState.UP_LOCKED
-        self.deploy_start_delay = None
 
-    def log(self, msg:str):
+        # Timing instrumentation
+        self._deploy_cmd_ts: float | None = None
+        self._deploy_transition_ts: float | None = None
+
+    def log(self, msg: str) -> None:
         print(msg)
 
     def command_gear_down(self):
