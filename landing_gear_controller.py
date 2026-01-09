@@ -9,6 +9,9 @@ class LandingGearController:
     def __init__(self):
         self.state = GearState.UP_LOCKED
 
+    def log(self, msg:str):
+        print(msg)
+
     def command_gear_down(self):
         if self.state == GearState.UP_LOCKED:
             self.state = GearState.TRANSITIONING_DOWN
