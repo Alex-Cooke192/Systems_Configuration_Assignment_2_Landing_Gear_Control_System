@@ -49,7 +49,16 @@ def initialize():
         requirement_time_ms=5000,
     )
 
-    return LandingGearController(config)
+    # Used to validate LGCS-FR001
+    deploy_time_ms = config.compute_deploy_time_ms()
+    if deploy_time_ms >= 8000:
+        raise ValueError(
+            f"LGCS-FR001 violated: deploy_time_ms={deploy_time_ms:.1f} (must be < 8000)"
+        )
+
+    controller = LandingGearController(config)
+    controller._deploy_requested = True
+    return controller
 
 
 def cycle(controller: LandingGearController):
