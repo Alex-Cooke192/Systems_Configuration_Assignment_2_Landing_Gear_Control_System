@@ -18,6 +18,9 @@ class LandingGearController:
         # Stores cached deploy timing derived from configuration
         self._deploy_time_s = self._config.compute_deploy_time_ms() / 1000.0
 
+        # Stores request for deploy (eventually will be from UI)
+        self._deploy_requested = False
+
     def log(self, msg: str) -> None:
         print(msg)
 
@@ -32,6 +35,8 @@ class LandingGearController:
         if self._state == GearState.UP_LOCKED:
             # Initiates extension when down command is present
             if self.down_requested():
+                self._deploy_cmd_ts = self._clock()
+                self._deploy_transition_ts = self._clock()
                 self.command_gear_down()
                 self.enter_state(GearState.TRANSITIONING_DOWN)
             return
