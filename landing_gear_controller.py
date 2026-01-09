@@ -85,7 +85,3 @@ class LandingGearController:
         
 
 
-controller = LandingGearController()
-controller._deploy_requested = True
-
-
