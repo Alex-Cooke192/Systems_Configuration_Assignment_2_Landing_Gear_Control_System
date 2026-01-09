@@ -1,3 +1,44 @@
+"""
+Title: Landing Gear Deploy Function Unit Tests
+Author: Alex Cooke
+Date Created: 2026-01-09
+Last Modified: 2026-01-09
+Version: 1.0
+
+Purpose:
+Provides unit-level verification of landing gear deployment logic implemented
+in the LandingGearController. These tests validate correct state transitions,
+actuator commands, and timing behavior under nominal and rejection conditions.
+
+Targeted Requirements (Verification Only):
+- LGCS-FR001: Verification of UP-to-DOWN transition behavior and timing.
+- LGCS-FR004: Verification that deploy commands are ignored in FAULT/ABNORMAL states.
+
+Scope and Limitations:
+- Tests controller logic only; no real hardware or timing sources are used.
+- Uses a deterministic fake clock for repeatable execution.
+- Does not validate real-time performance or physical actuator behavior.
+
+Safety Notice:
+This file is a test artefact intended solely for verification and assessment.
+It must not be used in operational or flight-certified systems.
+
+Dependencies:
+- Python 3.10+
+- pytest
+- landing_gear_controller.py
+- gear_configuration.py
+
+Related Documents:
+- LGCS Unit Test Plan
+- LGCS Requirements Specification
+
+Safety and Certification Disclaimer:
+All artefacts in this repository are produced for academic assessment purposes only.
+They do not represent certified software and must not be used in real-world aviation
+or safety-critical systems.
+"""
+
 import pytest
 
 from gear_configuration import GearConfiguration

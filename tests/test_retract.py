@@ -1,3 +1,44 @@
+"""
+Title: Landing Gear Retract Function Unit Tests
+Author: <Your Name>
+Date Created: 2026-01-09
+Last Modified: 2026-01-09
+Version: 1.0
+
+Purpose:
+Provides unit-level verification of landing gear retraction logic implemented
+in the LandingGearController, including enforcement of weight-on-wheels and
+fault-state safety interlocks.
+
+Targeted Requirements (Verification Only):
+- LGCS-FR002: Verification that retraction occurs only when weight-on-wheels is FALSE.
+- LGCS-FR004: Verification that retract commands are ignored in FAULT/ABNORMAL states.
+
+Scope and Limitations:
+- Tests controller logic only; no integration with hardware or OS timing.
+- Weight-on-wheels and fault conditions are injected directly for verification.
+- Intended for deterministic, repeatable execution.
+
+Safety Notice:
+This file is a test artefact intended solely for verification and assessment.
+It must not be used in operational or flight-certified systems.
+
+Dependencies:
+- Python 3.10+
+- pytest
+- landing_gear_controller.py
+- gear_configuration.py
+
+Related Documents:
+- LGCS Unit Test Plan
+- LGCS Requirements Specification
+
+Safety and Certification Disclaimer:
+All artefacts in this repository are produced for academic assessment purposes only.
+They do not represent certified software and must not be used in real-world aviation
+or safety-critical systems.
+"""
+
 import pytest
 
 from gear_configuration import GearConfiguration
