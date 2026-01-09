@@ -21,6 +21,7 @@ class LandingGearController:
 
         # Stores request for deploy (eventually will be from the UI)
         self._deploy_requested = False
+        self._retract_requested = False
 
     def log(self, msg: str) -> None:
         print(msg)
@@ -31,6 +32,9 @@ class LandingGearController:
     
     def down_requested(self) -> bool:
         return self._deploy_requested
+    
+    def up_requested(self) -> bool:
+        return self._retract_requested
 
     def update(self) -> None:
         # Advances landing gear state machine by one control tick
@@ -80,8 +84,38 @@ class LandingGearController:
         self._actuate_down(False)
         return False
     
+    # LGCS-FR002
+    def command_gear_up(self, enabled: bool) -> bool:
+        # Applies actuator command and performs any required state transition
+        now = self._clock()
+
+        if enabled:
+            if self._state != GearState.DOWN_LOCKED:
+                self.log(f"Retract rejected: state={self._state.name}")
+                return False
+
+            self._retract_requested = False
+
+            self._retract_cmd_ts = now
+            self._retract_transition_ts = now
+            self._actuate_up(True)
+            self.enter_state(GearState.TRANSITIONING_UP)
+            return True
+
+        if self._state == GearState.TRANSITIONING_UP:
+            self._actuate_up(False)
+            self.enter_state(GearState.UP_LOCKED)
+            return True
+
+        self._actuate_up(False)
+        return False
+
+
     def _actuate_down(self, enabled: bool) -> None:
         self.log(f"Gear down actuator command: {enabled}")
+
+    def _actuate_up(self, enabled: bool) -> None:
+        self.log(f"Gear up actuator command: {enabled}")
         
 
 
