@@ -60,7 +60,7 @@ class LandingGearController:
         now = self._clock()
 
         if enabled:
-            self._deploy_requested
+            self._deploy_requested = False
             if self._state != GearState.UP_LOCKED:
                 self.log(f"Deploy rejected: state={self._state.name}")
                 return False
@@ -75,6 +75,9 @@ class LandingGearController:
             self._actuate_down(False)
             self.enter_state(GearState.DOWN_LOCKED)
             return True
+        
+        self._actuate_down(False)
+        return False
     
     def _actuate_down(self, enabled: bool) -> None:
         self.log(f"Gear down actuator command: {enabled}")
