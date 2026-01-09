@@ -1,6 +1,43 @@
-# Manual test script for the 'add_deploy' prototype controller.
-# Some tests are expected to fail due to known implementation gaps.
-# These failures demonstrate incremental development progress.
+"""
+Title: Landing Gear Deploy Command – Manual Test Script
+Author: Alex Cooke
+Date Created: 2026-01-09
+Last Modified: 2026-01-09
+Version: 1.0
+
+Purpose:
+Provides a lightweight, manual test harness for the landing gear deploy
+command logic. The script exercises controller construction, deploy command
+acceptance and rejection, and basic timing instrumentation. It supports
+incremental development and early validation of deploy-related behaviour.
+
+Targeted Requirements:
+- None (supporting analysis or tooling only)
+
+Scope and Limitations:
+- Tests are executed manually and are not automated within a test framework
+- Output is observed via console logging rather than structured assertions
+- Several tests are expected to fail due to known implementation gaps
+- No physical actuator, sensor, or fault modelling is included
+
+Safety Notice:
+This software is for academic and illustrative purposes only.
+It is not flight-certified and must not be used in operational systems.
+
+Dependencies:
+- Python 3.11+
+- gear_configuration module
+- landing gear controller module
+
+Related Documents:
+- Landing Gear Control System (LGCS) Requirements
+- Academic assessment brief
+
+Safety and Certification Disclaimer:
+All artefacts in this repository are produced for academic assessment purposes only.
+They do not represent certified software and must not be used in real-world aviation
+or safety-critical systems.
+"""
 
 import time
 
