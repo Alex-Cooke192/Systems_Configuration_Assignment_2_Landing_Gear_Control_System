@@ -49,6 +49,12 @@ class LandingGearController:
         now = self._clock()
         elapsed_s = now - self._state_entered_at
 
+        if self._state in (GearState.FAULT, GearState.ABNORMAL):
+            # FR004: Ignore transition up/down 
+            self._actuate_down(False)
+            self._actuate_up(False)
+            return
+
         if self._state == GearState.UP_LOCKED:
             if self.down_requested():
                 self.command_gear_down(True)
@@ -65,10 +71,11 @@ class LandingGearController:
 
         if self._state == GearState.DOWN_LOCKED:
             if self.up_requested():
-                if self.weight_on_wheels():
+                if self.weight_on_wheels(): # LGCS-FR002
                     self.log("Retract inhibited: weight-on-wheels=TRUE")
-                    # Clear retract request so it doesnt keep trying
-                    self._retract_requested = False
+                    return
+                # Clear retract request so it doesnt keep trying
+                self._retract_requested = False
                 self.command_gear_up(True)
             return
         
@@ -86,6 +93,11 @@ class LandingGearController:
         now = self._clock()
 
         if enabled:
+            # LGCS-FR004
+            if self._state in (GearState.FAULT, GearState.ABNORMAL):
+                self.log(f"Deploy ignored: state={self._state.name}")
+                return False
+            
             if self._state != GearState.UP_LOCKED:
                 self.log(f"Deploy rejected: state={self._state.name}")
                 return False
@@ -112,6 +124,11 @@ class LandingGearController:
         now = self._clock()
 
         if enabled:
+            # LGCS-FR004
+            if self._state in (GearState.FAULT, GearState.ABNORMAL):
+                self.log(f"Retract ignored: state={self._state.name}")
+                return False   
+                 
             if self._state != GearState.DOWN_LOCKED:
                 self.log(f"Retract rejected: state={self._state.name}")
                 return False
