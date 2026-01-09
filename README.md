@@ -12,40 +12,80 @@ for analysis, illustration, and assessment purposes.
 ---
 
 ## Repository Structure
+The repository structure is intentionally minimal at this stage and will evolve as
+artefacts are added during the coursework.
+
+---
 
 ## Branch Naming Convention
 
-Branches are named to reflect **intent and activity**, not assumed requirement
-implementation, unless explicitly stated.
+Branches are named to reflect **intent and activity**.  
+Requirement identifiers shall only be included when a branch directly targets those
+requirements.
 
+---
 
+### 1. Branches Targeting a Single Requirement
+Use this pattern when a branch directly implements, verifies, or analyses **one**
+specific requirement.
 
-### Default Pattern (Recommended)
+req/<REQUIREMENT-ID>-<short-description>
+
+makefile
+Copy code
+
+Example:
+req/LGCS-FR001-deploy-function
+
+yaml
+Copy code
+
+---
+
+### 2. Branches Targeting Multiple Requirements
+Use this pattern when a single change directly affects **multiple related requirements**.
+
+req/<REQUIREMENT-ID-START>-<REQUIREMENT-ID-END>-<short-description>
+
+makefile
+Copy code
+
+Example:
+req/LGCS-SR001-002-altitude-sensor
+
+yaml
+Copy code
+
+Only group requirements when the relationship is clear and defensible.
+
+---
+
+### 3. Branches Not Targeting Specific Requirements
+When no direct requirement traceability exists, use a **task-based naming pattern**.
+
 task/<short-description>
 
-markdown
+makefile
 Copy code
 
-Examples:
-- `task/performance-analysis`
-- `task/requirements-cleanup`
-- `task/plot-generation`
+Example:
+task/add_script_header_template
 
-### Other Accepted Patterns
-Use when appropriate:
-
-analysis/<topic> # Analytical or study work
-docs/<topic> # Documentation or formatting changes
-test/<topic> # Test or verification scripts
-refactor/<topic> # Structural or code quality changes
-experiment/<topic> # Exploratory or non-final work
-spike/<topic> # Short-lived investigation
-
-markdown
+yaml
 Copy code
+
+This pattern shall be used for:
+- Tooling
+- Documentation
+- Refactoring
+- Templates
+- General repository improvements
+
+---
 
 ### Avoid
 Do **not** name branches after requirements unless they directly implement or verify them:
+
 lgcs-fr001
 feature/gear-deploy
 
@@ -73,7 +113,6 @@ Brief description of what the script does and why it exists.
 
 Targeted Requirements:
 - <Requirement ID>: <Short description>
-- <Requirement ID>: <Short description>
 (Use "None" if no direct requirement traceability exists.)
 
 Scope and Limitations:
@@ -94,7 +133,7 @@ Related Documents:
 """
 If a script does not target a specific requirement, explicitly state:
 
-sql
+python
 Copy code
 Targeted Requirements:
-- None (supporting analysis / tooling only)
+- None (supporting analysis or tooling only)
