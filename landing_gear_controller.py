@@ -202,10 +202,25 @@ class LandingGearController:
 
 
     def _actuate_down(self, enabled: bool) -> None:
+        if enabled and self._deploy_cmd_ts is not None and self._deploy_actuation_ts is None:
+            self._deploy_actuation_ts = self._clock()
         self.log(f"Gear down actuator command: {enabled}")
 
     def _actuate_up(self, enabled: bool) -> None:
+        if enabled and self._retract_cmd_ts is not None and self._retract_actuation_ts is None:
+            self._retract_actuation_ts = self._clock()
         self.log(f"Gear up actuator command: {enabled}")
+    
+    def deploy_actuation_latency_ms(self) -> float | None:
+        if self._deploy_cmd_ts is None or self._deploy_actuation_ts is None:
+            return None
+        return (self._deploy_actuation_ts - self._deploy_cmd_ts) * 1000.0
+
+    def retract_actuation_latency_ms(self) -> float | None:
+        if self._retract_cmd_ts is None or self._retract_actuation_ts is None:
+            return None
+        return (self._retract_actuation_ts - self._retract_cmd_ts) * 1000.0
+
         
 
 
