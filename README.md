@@ -133,7 +133,13 @@ Related Documents:
 """
 If a script does not target a specific requirement, explicitly state:
 
-python
-Copy code
+
+
 Targeted Requirements:
 - None (supporting analysis or tooling only)
+
+Safety and Certification Disclaimer
+All artefacts in this repository are produced for academic assessment purposes only.
+They do not represent certified software and must not be used in real-world aviation
+or safety-critical systems.
+
