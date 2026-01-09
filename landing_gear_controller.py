@@ -12,6 +12,8 @@ class LandingGearController:
         self._clock = clock
         self._state_entered_at = self._clock()
 
+        self._weight_on_wheels:bool = True # Assumed to be on ground at startup
+
         # Timing instrumentation
         self._deploy_cmd_ts: float | None = None
         self._deploy_transition_ts: float | None = None
@@ -25,6 +27,12 @@ class LandingGearController:
 
     def log(self, msg: str) -> None:
         print(msg)
+
+    def set_weight_on_wheels(self, wow:bool) -> None:
+        self._weight_on_wheels = wow
+    
+    def weight_on_wheels(self) -> bool:
+        return self._weight_on_wheels
 
     def enter_state(self, new_state: GearState):
         self._state = new_state
@@ -57,6 +65,10 @@ class LandingGearController:
 
         if self._state == GearState.DOWN_LOCKED:
             if self.up_requested():
+                if self.weight_on_wheels():
+                    self.log("Retract inhibited: weight-on-wheels=TRUE")
+                    # Clear retract request so it doesnt keep trying
+                    self._retract_requested = False
                 self.command_gear_up(True)
             return
         
@@ -103,7 +115,11 @@ class LandingGearController:
             if self._state != GearState.DOWN_LOCKED:
                 self.log(f"Retract rejected: state={self._state.name}")
                 return False
-
+            
+            if self.weight_on_wheels():
+                self.log("Retract rejected: weight-on-wheels=TRUE")
+                return False
+            
             self._retract_requested = False
 
             self._retract_cmd_ts = now
