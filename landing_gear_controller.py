@@ -10,6 +10,7 @@ class GearState(Enum):
 class LandingGearController:
     def __init__(self):
         self.state = GearState.UP_LOCKED
+        self.deploy_start_delay = None
 
     def log(self, msg:str):
         print(msg)
@@ -22,11 +23,13 @@ class LandingGearController:
                         Not in UP_LOCKED""")
             return False
         
-        # Begin actuation immediately (LGCS-PR001)
+        # Begin actuation immediately
         self.state = GearState.TRANSITIONING_DOWN
-        self.ui_status = "DEPLOYING"
-        self._deploy_start_ts = time.monotonic()
+        ### Calculate the time taken from function inviocation to landing gear deployment
+        self.deploy_start_delay = time.monotonic()
         self.log("Gear deploying...")
+        self.log("Time taken to begin actuation: {self.deploy_start_delay}")
+        return True
         
 
 controller = LandingGearController()
