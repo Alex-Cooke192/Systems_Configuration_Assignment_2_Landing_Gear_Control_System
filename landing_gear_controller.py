@@ -54,9 +54,7 @@ class LandingGearController:
     def command_gear_down(self):
         # Only accept deploy when in UP_LOCKED state 
         if self._state != GearState.UP_LOCKED:
-            self.log("""Deploy REJECTED\n
-                        Current state: {self._state}\n
-                        Not in UP_LOCKED""")
+            self.log(f"Deploy rejected: state={self._state.name}")
             return False
         
         # Begin actuation immediately
@@ -64,7 +62,7 @@ class LandingGearController:
         ### Calculate the time taken from function inviocation to landing gear deployment
         self.deploy_start_delay = time.monotonic()
         self.log("Gear deploying...")
-        self.log("Time taken to begin actuation: {self.deploy_start_delay}")
+        self.log(f"Time taken to begin actuation: {self.deploy_start_delay}")
         return True
         
 
