@@ -61,9 +61,11 @@ class LandingGearController:
         # Timing instrumentation
         self._deploy_cmd_ts: float | None = None
         self._deploy_transition_ts: float | None = None
+        self._deploy_actuation_ts: float | None = None
         
         self._retract_cmd_ts: float | None = None
         self._retract_transition_ts: float | None = None
+        self._retract_actuation_ts: float | None = None
 
         # Stores cached deploy timing derived from configuration
         self._deploy_time_s = self._config.compute_deploy_time_ms() / 1000.0
@@ -152,6 +154,8 @@ class LandingGearController:
             self._deploy_requested = False
 
             self._deploy_cmd_ts = now
+            self._deploy_cmd_ts = now
+            self._deploy_actuation_ts = None
             self._deploy_transition_ts = now
             self._actuate_down(True)
             self.enter_state(GearState.TRANSITIONING_DOWN)
@@ -187,6 +191,8 @@ class LandingGearController:
             self._retract_requested = False
 
             self._retract_cmd_ts = now
+            self._retract_cmd_ts = now
+            self._retract_actuation_ts = None
             self._retract_transition_ts = now
             self._actuate_up(True)
             self.enter_state(GearState.TRANSITIONING_UP)
@@ -221,6 +227,5 @@ class LandingGearController:
             return None
         return (self._retract_actuation_ts - self._retract_cmd_ts) * 1000.0
 
-        
 
 
