@@ -27,7 +27,7 @@ class LandingGearController:
 
     def enter_state(self, new_state: GearState):
         self._state = new_state
-        self._state_entered_at = time.now()
+        self._state_entered_at = self._clock
 
     def update(self):
         # Advances landing gear state machine by one control tick
