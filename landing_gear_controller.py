@@ -1,4 +1,48 @@
-## Top file comment
+"""
+Title: Landing Gear Control State Machine (LGCS Controller)
+Author: Alex Cooke
+Date Created: 2026-01-09
+Last Modified: 2026-01-09
+Version: 1.0
+
+Purpose:
+Implements a deterministic landing gear control state machine responsible for
+commanding gear deployment and retraction based on system state, timing derived
+from configuration, and safety interlocks such as weight-on-wheels and fault states.
+The controller separates command intent, timing, and actuator outputs to enable
+traceable and testable behavior.
+
+Targeted Requirements:
+- LGCS-FR001: Landing gear shall transition from UP to DOWN within the required time.
+- LGCS-FR002: Landing gear shall transition from DOWN to UP only when weight-on-wheels = FALSE.
+- LGCS-FR004: Landing gear shall ignore retract commands while in FAULT or ABNORMAL states.
+
+Scope and Limitations:
+- Assumes symmetric deploy and retract timing derived from GearConfiguration.
+- Does not model partial extension, hydraulic failures, or sensor disagreement.
+- FAULT and ABNORMAL states are treated as actuator-inhibited safe states.
+- Intended for simulation, design exploration, and requirements validation only.
+
+Safety Notice:
+This software is for academic and illustrative purposes only.
+It is not flight-certified and must not be used in operational systems.
+
+Dependencies:
+- Python 3.10+
+- gear_configuration.py
+- gear_states.py
+
+Related Documents:
+- LGCS Requirements Specification
+- LGCS System Safety Assessment
+- SRATS-006, SRATS-011 Traceability Records
+
+Safety and Certification Disclaimer:
+All artefacts in this repository are produced for academic assessment purposes only.
+They do not represent certified software and must not be used in real-world aviation
+or safety-critical systems.
+"""
+
 
 import time
 from gear_configuration import GearConfiguration
