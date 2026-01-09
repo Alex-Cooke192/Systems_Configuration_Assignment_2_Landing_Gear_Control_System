@@ -30,6 +30,7 @@ def make_controller_with_fake_clock():
 
 
 class TestPerformance:
+    #LGCS-PR001
     def test_pr001_deploy_actuates_within_200ms(self):
         controller, clock = make_controller_with_fake_clock()
 
@@ -40,6 +41,8 @@ class TestPerformance:
         assert latency is not None
         assert latency <= 200.0
 
+    # LGCS-PR002:
+    # Verify gear state indications update at >=10 Hz during deploy transitions
     def test_state_updates_at_minimum_10hz_during_deploy():
         controller, clock = make_controller_with_fake_clock()
 
