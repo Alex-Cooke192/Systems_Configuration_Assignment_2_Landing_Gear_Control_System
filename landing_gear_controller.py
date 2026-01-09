@@ -56,7 +56,17 @@ class LandingGearController:
             return
 
         if self._state == GearState.DOWN_LOCKED:
-            self._actuate_down(False)
+            if self.up_requested():
+                self.command_gear_up(True)
+            return
+        
+        if self._state == GearState.TRANSITIONING_UP:
+            # Maintain actuation during retraction
+            self._actuate_up(True)
+
+            # Complete transition using computed deploy time
+            if elapsed_s >= self._deploy_time_s:
+                self.command_gear_up(False)
             return
 
     def command_gear_down(self, enabled: bool) -> bool:
