@@ -25,6 +25,10 @@ class GearConfiguration:
             self.lock_time_ms
         )
     
+    def meets_deploy_requirement(self) -> bool:
+        return self.compute_deploy_time_ms() <= self.requirement_time_ms
+    
+    
 
 
 
