@@ -60,10 +60,11 @@ class LandingGearController:
         now = self._clock()
 
         if enabled:
-            self._deploy_requested = False
             if self._state != GearState.UP_LOCKED:
                 self.log(f"Deploy rejected: state={self._state.name}")
                 return False
+            
+            self._deploy_requested = False
 
             self._deploy_cmd_ts = now
             self._deploy_transition_ts = now
