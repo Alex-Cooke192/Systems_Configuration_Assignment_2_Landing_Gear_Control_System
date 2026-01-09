@@ -89,9 +89,18 @@ class LandingGearController:
             self._actuate_down(False)
             self.enter_state(GearState.DOWN_LOCKED)
             return True
-        
 
-controller = LandingGearController()
-controller.command_gear_down()
+cfg = GearConfiguration(
+    name="LG-1",
+    pump_latency_ms=200,
+    actuator_speed_mm_per_100ms=50.0,
+    extension_distance_mm=500,
+    lock_time_ms=300,
+    requirement_time_ms=5000,
+)
+
+
+controller = LandingGearController(cfg)
+controller._deploy_requested = True
 
 
