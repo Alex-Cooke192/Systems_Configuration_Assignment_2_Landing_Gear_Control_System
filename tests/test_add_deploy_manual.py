@@ -40,9 +40,15 @@ or safety-critical systems.
 """
 
 import time
+import sys
+from pathlib import Path
+
+# Add project root to Python path for test execution
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
 # Update imports to match the controller module filename
-from controller import LandingGearController, GearState
+from landing_gear_controller import LandingGearController, GearState
 from gear_configuration import GearConfiguration
 
 
