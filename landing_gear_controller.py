@@ -364,7 +364,7 @@ class LandingGearController:
                 self.log(f"Retract rejected: state={self._state.name}")
                 return False
 
-            if self.weight_on_wheels(): #LGCS-FR003
+            if self.weight_on_wheels(): #LGCS-FR002/LGCS-SR003
                 self.log("Retract rejected: weight-on-wheels=TRUE")
                 return False
 
