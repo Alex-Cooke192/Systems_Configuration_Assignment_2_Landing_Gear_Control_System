@@ -69,6 +69,8 @@ class LandingGearController:
 
         # Auto-deploy latch for SR001
         self._auto_deploy_latched = False
+        # Warning latch for SR002
+        self._low_alt_warning_active = False
 
         self._weight_on_wheels: bool = True
 
@@ -114,6 +116,7 @@ class LandingGearController:
         now = self._clock()
         elapsed_s = now - self._state_entered_at
 
+        self._deliver_low_altitude_warning()
         self._apply_sr001_auto_deploy()
 
         if self._state in (GearState.FAULT, GearState.ABNORMAL):
@@ -181,6 +184,38 @@ class LandingGearController:
         accepted = self.command_gear_down(True)
         if accepted:
             self._auto_deploy_latched = True
+    
+    def _deliver_low_altitude_warning(self) -> None:
+        # LGCS-SR002:
+        # Deliver visual and auditory warning when altitude < 2000 ft under normal conditions
+        # and landing gear is not DOWN.
+
+        WARNING_TEXT = "WARNING: ALTITUDE LOW - LANDING GEAR NOT DEPLOYED"
+
+        if self.altitude_provider is None or self.normal_conditions_provider is None:
+            return
+
+        altitude_ft = self.altitude_provider()
+        if altitude_ft is None:
+            return
+
+        normal = self.normal_conditions_provider()
+
+        if (
+            normal
+            and altitude_ft < 2000.0
+            and self._state not in (GearState.DOWN_LOCKED, GearState.TRANSITIONING_DOWN)
+        ):
+            if not self._low_alt_warning_active:
+                # Visual warning
+                self.log(WARNING_TEXT)
+                # Auditory warning (placeholder)
+                self.log("AURAL WARNING: GEAR")
+
+                self._low_alt_warning_active = True
+        else:
+            self._low_alt_warning_active = False
+
 
     def command_gear_down(self, enabled: bool) -> bool:
         # Applies actuator command and performs any required state transition
