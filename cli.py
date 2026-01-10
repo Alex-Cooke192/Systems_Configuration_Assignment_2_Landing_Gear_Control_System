@@ -448,4 +448,7 @@ def run_cli(ctx):
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from main import initialize
+    ctx = initialize()
+    run_cli(ctx)
+
