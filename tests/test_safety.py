@@ -1,4 +1,5 @@
 import random
+import pytest
 
 from landing_gear_controller import LandingGearController
 from gear_configuration import GearConfiguration
@@ -70,3 +71,45 @@ class TestSafety:
         assert controller.state in (GearState.TRANSITIONING_DOWN, GearState.DOWN_LOCKED), (
             f"Automatic deploy was not initiated after altitude dropped below 1000 ft (state={controller.state})"
         )
+
+    def test_sr002_warns_below_2000ft_when_gear_not_down(self):
+        # LGCS-SR002:
+        # Confirm warning is delivered when altitude drops below 2000 ft under normal conditions
+        # while landing gear state is not DOWN.
+
+        controller, sim, clock = make_controller_with_fake_clock()
+
+        # Capture warnings via log override
+        messages: list[str] = []
+        controller.log = lambda msg: messages.append(msg)
+
+        # Altitude above threshold produces no warning
+        sim.set_altitude_ft(2500.0)
+        controller.update()
+        assert not any(
+            "WARNING: ALTITUDE LOW - LANDING GEAR NOT DEPLOYED" in m
+            for m in messages
+        )
+
+        # Drop altitude below threshold
+        sim.set_altitude_ft(1999.0)
+        controller.update()
+
+        # Verify visual warning text is delivered
+        assert any(
+            "WARNING: ALTITUDE LOW - LANDING GEAR NOT DEPLOYED" in m
+            for m in messages
+        )
+
+    def test_sr003_inhibits_retract_when_weight_on_wheels_true(self):
+        # LGCS-SR003:
+        # Confirm retraction is inhibited when weight-on-wheels is TRUE.
+
+        controller, sim, clock = make_controller_with_fake_clock()
+
+        controller.enter_state(GearState.DOWN_LOCKED)
+        controller.set_weight_on_wheels(True)
+
+        accepted = controller.command_gear_up(True)
+        assert accepted is False
+        assert controller.state == GearState.DOWN_LOCKED
