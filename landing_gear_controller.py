@@ -47,6 +47,8 @@ or safety-critical systems.
 import time
 from gear_configuration import GearConfiguration
 from gear_states import GearState
+from sims.position_simulator import PositionSensorReading, SensorStatus
+from typing import Callable, Sequence
 
 
 class LandingGearController:
@@ -56,7 +58,9 @@ class LandingGearController:
         clock=time.monotonic,
         altitude_provider=None,
         normal_conditions_provider=None,
-        primary_power_present_provider=None
+        primary_power_present_provider=None,
+        position_sensors_provider=None, 
+        fault_recorder=None, 
     ):
         self._config = config
         self._state = GearState.UP_LOCKED
@@ -94,9 +98,26 @@ class LandingGearController:
         self.primary_power_present_provider = primary_power_present_provider
         self._sr004_power_loss_latched = False
 
+        # Position data
+        self.position_sensors_provider: Callable[[], Sequence[PositionSensorReading]] | None = position_sensors_provider
+        self._maintenance_fault_active = False
+        self._maintenance_fault_codes: set[str] = set()
+
+        # Position estimate from sensor data 
+        self._position_estimate_norm: float | None = None
+
+        # Fault recorder
+        self._fault_recorder = fault_recorder
+        self._recorded_fault_codes: set[str] = set()
+
+
     @property
     def state(self) -> GearState:
         return self._state
+
+    @property
+    def position_estimate_norm(self) -> float | None:
+        return self._position_estimate_norm
 
     def log(self, msg: str) -> None:
         print(msg)
@@ -122,8 +143,9 @@ class LandingGearController:
         now = self._clock()
         elapsed_s = now - self._state_entered_at
 
-        self._deliver_low_altitude_warning()
         self._apply_sr004_power_loss_default_down()
+        self._position_estimate_norm = self._apply_fthr001_single_sensor_failure_handling()
+        self._deliver_low_altitude_warning()
         self._apply_sr001_auto_deploy()
 
         if self._state in (GearState.FAULT, GearState.ABNORMAL):
@@ -329,3 +351,45 @@ class LandingGearController:
         if enabled and self._retract_cmd_ts is not None and self._retract_actuation_ts is None:
             self._retract_actuation_ts = self._clock()
         self.log(f"Gear up actuator command: {enabled}")
+    
+    def _apply_fthr001_single_sensor_failure_handling(self) -> float | None:
+        # LGCS-FTHR001:
+        # Continue operation using remaining valid sensors after a single sensor failure
+        # and flag a maintenance fault.
+
+        if self.position_sensors_provider is None:
+            return None
+
+        readings = self.position_sensors_provider()
+        if not readings:
+            return None
+
+        valid = [r for r in readings if r.status == SensorStatus.OK]
+        failed_count = len(readings) - len(valid)
+
+        if failed_count == 1 and len(valid) >= 1:
+            self._maintenance_fault_active = True
+            fault_code = self._maintenance_fault_codes.add("FTHR001_SINGLE_SENSOR_FAILURE")
+            self._record_fault(fault_code)
+            return sum(r.position_norm for r in valid) / len(valid)
+
+        if failed_count == 0:
+            return sum(r.position_norm for r in readings) / len(readings)
+
+        self._maintenance_fault_active = True
+        fault_code = self._maintenance_fault_codes.add("MULTIPLE_SENSOR_FAILURE")
+        self._record_fault(fault_code)
+        return None
+
+    def _record_fault(self, fault_code: str) -> None:
+        # LGCS-FTHR003:
+        # Records detected faults with timestamp and fault code to non-volatile storage.
+        if self.fault_recorder is None:
+            return
+
+        if fault_code in self._recorded_fault_codes:
+            return
+
+        self.fault_recorder.record(fault_code)
+        self._recorded_fault_codes.add(fault_code)
+
