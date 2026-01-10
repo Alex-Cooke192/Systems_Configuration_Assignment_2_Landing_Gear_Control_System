@@ -187,60 +187,26 @@ State / diagnostics
     )
 
 
-def main() -> int:
-    config = GearConfiguration(
-        name="LG-CLI",
-        pump_latency_ms=200,
-        actuator_speed_mm_per_100ms=50.0,
-        extension_distance_mm=500,
-        lock_time_ms=300,
-        requirement_time_ms=8000,
-    )
+# cli.py
+from app_context import AppContext
 
-    altitude = MutableFloat(5000.0)
-    normal = MutableBool(True)
-    power = MutableBool(True)
-    wow = MutableBool(True)
-
-    sensors = PositionSensorBank()
-
-    def altitude_provider() -> float:
-        return float(altitude.value)
-
-    def normal_provider() -> bool:
-        return bool(normal.value)
-
-    def power_provider() -> bool:
-        return bool(power.value)
-
-    def sensors_provider() -> Sequence[PositionSensorReading]:
-        return sensors.get_readings()
-
-    fault_recorder = None
-    if FaultRecorder is not None:
-        log_path = Path("fault_log.txt")
-        fault_recorder = FaultRecorder(filepath=log_path, clock=time.monotonic)
-
-    controller = LandingGearController(
-        config=config,
-        clock=time.monotonic,
-        altitude_provider=altitude_provider,
-        normal_conditions_provider=normal_provider,
-        primary_power_present_provider=power_provider,
-        position_sensors_provider=sensors_provider,
-        fault_recorder=fault_recorder,
-    )
-
-    controller.set_weight_on_wheels(True)
-
-    loop = ControlLoop(controller, period_s=0.1)
+def run_rich_cli(ctx: AppContext) -> int:
+    controller = ctx.controller
+    altitude = ctx.altitude
+    normal = ctx.normal
+    power = ctx.power
+    wow = ctx.wow
+    sensors = ctx.sensors
+    loop = ctx.loop
 
     _print_help()
-    while True:
+
+    while not ctx.shutdown_event.is_set():
         try:
             cmd = input("> ").strip()
         except (EOFError, KeyboardInterrupt):
             print()
+            ctx.shutdown()
             break
 
         if not cmd:
@@ -250,6 +216,7 @@ def main() -> int:
         op = parts[0].lower()
 
         if op in ("q", "quit", "exit"):
+            ctx.shutdown()
             break
 
         if op in ("help", "?"):
@@ -420,35 +387,8 @@ def main() -> int:
     return 0
 
 
-def run_cli(ctx):
-    print("Landing Gear CLI ready")
-    print("Commands: deploy, retract, status, quit")
-
-    while True:
-        cmd = input("> ").strip().lower()
-
-        if cmd == "deploy":
-            accepted = ctx.controller.command_deploy()
-            print("Deploy accepted" if accepted else "Deploy rejected")
-
-        elif cmd == "retract":
-            accepted = ctx.controller.command_retract()
-            print("Retract accepted" if accepted else "Retract rejected")
-
-        elif cmd == "status":
-            print(ctx.controller.state)
-
-        elif cmd == "quit":
-            ctx.shutdown()
-            break
-
-        else:
-            print("Unknown command")
-
-
-
 if __name__ == "__main__":
     from main import initialize
     ctx = initialize()
-    run_cli(ctx)
+    run_rich_cli(ctx)
 
