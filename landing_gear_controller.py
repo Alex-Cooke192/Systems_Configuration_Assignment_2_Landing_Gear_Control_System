@@ -438,13 +438,13 @@ class LandingGearController:
     def _record_fault(self, fault_code: str) -> None:
         # LGCS-FTHR003:
         # Records detected faults with timestamp and fault code to non-volatile storage.
-        if self.fault_recorder is None:
+        if self._fault_recorder is None:
             return
 
         if fault_code in self._recorded_fault_codes:
             return
 
-        self.fault_recorder.record(fault_code)
+        self._fault_recorder.record(fault_code)
         self._recorded_fault_codes.add(fault_code)
 
     def _apply_fthr002_conflicting_position_sensors_fault(self) -> None:
