@@ -1,5 +1,6 @@
 from landing_gear_controller import LandingGearController
 from gear_configuration import GearConfiguration
+from sims.position_simulator import SensorStatus, PositionSensorReading 
 
 
 class FakeClock:
@@ -117,6 +118,27 @@ class TestPerformance:
         assert all(delta <= 0.25 for delta in deltas), (
             f"Indication update interval exceeded 250 ms in steady state: {deltas}"
         )
+    
+    def test_pr004_fault_classification_within_400ms_for_fthr002(self):
+        controller, clock = make_controller_with_fake_clock()
+
+        readings = [
+            PositionSensorReading(SensorStatus.OK, 0.0),
+            PositionSensorReading(SensorStatus.OK, 1.0),
+        ]
+        controller.position_sensors_provider = lambda: readings
+
+        controller.update()          # starts conflict timer at t=0.0
+        clock.advance(0.50)          # threshold reached
+        controller.update()          # classification happens at t=0.50
+
+        # If your tick is coarse, do classification on next tick:
+        # clock.advance(0.10); controller.update()
+
+        latency_ms = controller.fault_classification_latency_ms("FTHR002_SENSOR_CONFLICT_PERSISTENT")
+        assert latency_ms is not None
+        assert latency_ms <= 400.0
+
 
 
         
