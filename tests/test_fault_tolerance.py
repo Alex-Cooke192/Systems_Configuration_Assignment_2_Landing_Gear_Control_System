@@ -33,7 +33,7 @@ class TestFaultTolerance():
         # LGCS-FTHR001:
         # Confirm system computes a position estimate from remaining sensors and flags maintenance fault.
 
-        controller, sim, clock = make_controller_with_fake_clock()
+        controller, clock = make_controller_with_fake_clock()
 
         readings = [
             PositionSensorReading(SensorStatus.OK, 0.8),
