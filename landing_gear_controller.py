@@ -110,6 +110,15 @@ class LandingGearController:
         self._fault_recorder = fault_recorder
         self._recorded_fault_codes: set[str] = set()
 
+        # FTHR002: sensor conflict persistence tracking
+        self._sensor_conflict_started_at: float | None = None
+        self._sensor_conflict_fault_latched: bool = False
+
+        # FTHR002 tuning constants (can be config if desired)
+        self._sensor_conflict_persist_s: float = 0.5  # 500 ms
+        self._sensor_conflict_tolerance_norm: float = 0.20  # 20% of travel
+
+
 
     @property
     def state(self) -> GearState:
@@ -142,6 +151,15 @@ class LandingGearController:
         # Advances landing gear state machine by one control tick
         now = self._clock()
         elapsed_s = now - self._state_entered_at
+
+        self._apply_fthr002_conflicting_position_sensors_fault()
+
+        # Once in FAULT/ABNORMAL, stop early (your existing logic)
+        if self._state in (GearState.FAULT, GearState.ABNORMAL):
+            self._actuate_down(False)
+            self._actuate_up(False)
+            return
+
 
         self._apply_sr004_power_loss_default_down()
         self._position_estimate_norm = self._apply_fthr001_single_sensor_failure_handling()
@@ -392,4 +410,50 @@ class LandingGearController:
 
         self.fault_recorder.record(fault_code)
         self._recorded_fault_codes.add(fault_code)
+
+    def _apply_fthr002_conflicting_position_sensors_fault(self) -> None:
+        # LGCS-FTHR002:
+        # Conflicting gear position sensor inputs persisting longer than 500 ms
+        # cause transition to FAULT and inhibit further gear commands.
+
+        if self.position_sensors_provider is None:
+            self._sensor_conflict_started_at = None
+            return
+
+        readings = self.position_sensors_provider()
+        if not readings:
+            self._sensor_conflict_started_at = None
+            return
+
+        valid = [r for r in readings if r.status == SensorStatus.OK]
+        if len(valid) < 2:
+            self._sensor_conflict_started_at = None
+            return
+
+        positions = [float(r.position_norm) for r in valid]
+        disagreement = max(positions) - min(positions)
+
+        conflicting = disagreement > self._sensor_conflict_tolerance_norm
+
+        now = self._clock()
+
+        if not conflicting:
+            self._sensor_conflict_started_at = None
+            return
+
+        if self._sensor_conflict_fault_latched:
+            return
+
+        if self._sensor_conflict_started_at is None:
+            self._sensor_conflict_started_at = now
+            return
+
+        if (now - self._sensor_conflict_started_at) >= self._sensor_conflict_persist_s:
+            self._sensor_conflict_fault_latched = True
+            self.enter_state(GearState.FAULT)
+
+            # Optional: record fault (FTHR003) if you added recording support
+            if hasattr(self, "_record_fault"):
+                self._record_fault("FTHR002_SENSOR_CONFLICT_PERSISTENT")
+
 
