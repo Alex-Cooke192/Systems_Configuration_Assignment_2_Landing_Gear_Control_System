@@ -63,7 +63,8 @@ class LandingGearController:
         fault_recorder=None, 
     ):
         self._config = config
-        self._state = GearState.UP_LOCKED
+        self._state = GearState.RESET
+        self._reset_validated = False
 
         self._clock = clock
         self._state_entered_at = self._clock()
@@ -172,6 +173,19 @@ class LandingGearController:
             # FR004: Transition commands are ignored in FAULT or ABNORMAL states.
             self._actuate_down(False)
             self._actuate_up(False)
+            return
+        
+        if self._state == GearState.RESET:
+            determined = self._determine_state_from_sensors()
+
+            if determined is None:
+                # Stay in RESET, ignore commands
+                self._actuate_down(False)
+                self._actuate_up(False)
+                return
+            
+            # Valid state determined - accept commands
+            self.enter_state(determined)
             return
 
         if self._state == GearState.UP_LOCKED:
@@ -489,4 +503,28 @@ class LandingGearController:
         if occ is None or cls is None:
             return None
         return (cls - occ) * 1000.0
+
+    def _determine_state_from_sensors(self) -> GearState | None:
+        # LGCS-FTHR004:
+        # Determine gear state using validated sensor inputs after reset.
+
+        if self.position_sensors_provider is None:
+            return None
+
+        readings = self.position_sensors_provider()
+        if not readings:
+            return None
+
+        valid = [r for r in readings if r.status == SensorStatus.OK]
+        if len(valid) == 0:
+            return None
+
+        avg_pos = sum(r.position_norm for r in valid) / len(valid)
+
+        if avg_pos <= 0.1:
+            return GearState.UP_LOCKED
+        if avg_pos >= 0.9:
+            return GearState.DOWN_LOCKED
+
+        return None  # ambiguous → do not accept commands
 
