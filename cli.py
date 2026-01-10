@@ -420,5 +420,32 @@ def main() -> int:
     return 0
 
 
+def run_cli(ctx):
+    print("Landing Gear CLI ready")
+    print("Commands: deploy, retract, status, quit")
+
+    while True:
+        cmd = input("> ").strip().lower()
+
+        if cmd == "deploy":
+            accepted = ctx.controller.command_deploy()
+            print("Deploy accepted" if accepted else "Deploy rejected")
+
+        elif cmd == "retract":
+            accepted = ctx.controller.command_retract()
+            print("Retract accepted" if accepted else "Retract rejected")
+
+        elif cmd == "status":
+            print(ctx.controller.state)
+
+        elif cmd == "quit":
+            ctx.shutdown()
+            break
+
+        else:
+            print("Unknown command")
+
+
+
 if __name__ == "__main__":
     raise SystemExit(main())
