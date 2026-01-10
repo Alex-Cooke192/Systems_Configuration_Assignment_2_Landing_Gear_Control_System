@@ -2,7 +2,7 @@
 import threading
 import time
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Sequence, Callable, Optional
 
 from landing_gear_controller import LandingGearController
 from sims.position_simulator import PositionSensorReading, SensorStatus
@@ -36,9 +36,13 @@ class PositionSensorBank:
 
 
 class ControlLoop:
-    def __init__(self, controller: LandingGearController, period_s: float = 0.1):
+    def __init__(self, 
+                 controller: LandingGearController, 
+                 period_s: float = 0.1,
+                 on_tick: Optional[Callable] = None,):
         self._controller = controller
         self._period_s = float(period_s)
+        self._on_tick = on_tick
         self._running = False
         self._stop_evt = threading.Event()
         self._thread: threading.Thread | None = None
@@ -70,8 +74,12 @@ class ControlLoop:
     def step(self, n: int = 1) -> None:
         for _ in range(max(1, int(n))):
             self._controller.update()
+            if self._on_tick:
+                self._on_tick(self._controller)
 
     def _run(self) -> None:
         while not self._stop_evt.is_set():
             self._controller.update()
+            if self._on_tick:
+                self._on_tick(self._controller)
             time.sleep(self._period_s)
