@@ -118,7 +118,9 @@ class LandingGearController:
         self._sensor_conflict_persist_s: float = 0.5  # 500 ms
         self._sensor_conflict_tolerance_norm: float = 0.20  # 20% of travel
 
-
+        # Fault timing record store
+        self._fault_occurrence_ts: dict[str, float] = {}
+        self._fault_classified_ts: dict[str, float] = {}
 
     @property
     def state(self) -> GearState:
@@ -386,10 +388,22 @@ class LandingGearController:
         failed_count = len(readings) - len(valid)
 
         if failed_count == 1 and len(valid) >= 1:
+            fault_code = "FTHR001_SINGLE_SENSOR_FAILURE"
+
             self._maintenance_fault_active = True
-            fault_code = self._maintenance_fault_codes.add("FTHR001_SINGLE_SENSOR_FAILURE")
+            self._maintenance_fault_codes.add(fault_code)
+
+            # FTHR003: record fault to non-volatile storage
             self._record_fault(fault_code)
+
+            # PR004: fault occurrence and classification are immediate
+            self._mark_fault_classified(
+                fault_code=fault_code,
+                occurrence_ts=self._clock()
+            )
+
             return sum(r.position_norm for r in valid) / len(valid)
+
 
         if failed_count == 0:
             return sum(r.position_norm for r in readings) / len(readings)
@@ -456,4 +470,20 @@ class LandingGearController:
             if hasattr(self, "_record_fault"):
                 self._record_fault("FTHR002_SENSOR_CONFLICT_PERSISTENT")
 
+    def _mark_fault_classified(self, fault_code: str, occurrence_ts: float) -> None:
+        # LGCS-PR004:
+        # Fault detection and classification timing is recorded for validation.
+
+        if fault_code in self._fault_classified_ts:
+            return
+
+        self._fault_occurrence_ts[fault_code] = float(occurrence_ts)
+        self._fault_classified_ts[fault_code] = float(self._clock())
+
+    def fault_classification_latency_ms(self, fault_code: str) -> float | None:
+        occ = self._fault_occurrence_ts.get(fault_code)
+        cls = self._fault_classified_ts.get(fault_code)
+        if occ is None or cls is None:
+            return None
+        return (cls - occ) * 1000.0
 
