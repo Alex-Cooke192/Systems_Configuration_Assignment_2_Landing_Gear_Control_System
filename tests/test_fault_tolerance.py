@@ -1,6 +1,7 @@
 from landing_gear_controller import LandingGearController
 from gear_configuration import GearConfiguration
 from fault_recorder import FaultRecorder
+from gear_states import GearState
 from sims.position_simulator import PositionSensorReading, SensorStatus
 
 class FakeClock:
