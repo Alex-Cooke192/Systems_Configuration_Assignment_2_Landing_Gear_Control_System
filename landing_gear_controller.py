@@ -56,6 +56,7 @@ class LandingGearController:
         clock=time.monotonic,
         altitude_provider=None,
         normal_conditions_provider=None,
+        primary_power_present_provider=None
     ):
         self._config = config
         self._state = GearState.UP_LOCKED
@@ -84,9 +85,14 @@ class LandingGearController:
         self._retract_actuation_ts: float | None = None
 
         self._deploy_time_s = self._config.compute_deploy_time_ms() / 1000.0
-
+        
+        # Deploy/retract variables
         self._deploy_requested = False
         self._retract_requested = False
+
+        # Power instrumentation
+        self.primary_power_present_provider = primary_power_present_provider
+        self._sr004_power_loss_latched = False
 
     @property
     def state(self) -> GearState:
@@ -117,6 +123,7 @@ class LandingGearController:
         elapsed_s = now - self._state_entered_at
 
         self._deliver_low_altitude_warning()
+        self._apply_sr004_power_loss_default_down()
         self._apply_sr001_auto_deploy()
 
         if self._state in (GearState.FAULT, GearState.ABNORMAL):
@@ -215,7 +222,32 @@ class LandingGearController:
                 self._low_alt_warning_active = True
         else:
             self._low_alt_warning_active = False
+    
+    def _apply_sr004_power_loss_default_down(self) -> None:
+        # LGCS-SR004:
+        # Following loss of primary control power, default to DOWN and override pilot input
+        # while primary control power is not present.
 
+        if self.primary_power_present_provider is None:
+            return
+
+        power_present = self.primary_power_present_provider()
+
+        if power_present:
+            self._sr004_power_loss_latched = False
+            return
+
+        # Override pilot input while power is not present.
+        self._deploy_requested = False
+        self._retract_requested = False
+
+        # Default to DOWN while power is not present.
+        if self._state in (GearState.DOWN_LOCKED, GearState.TRANSITIONING_DOWN):
+            return
+
+        if not self._sr004_power_loss_latched:
+            self.command_gear_down(True)
+            self._sr004_power_loss_latched = True
 
     def command_gear_down(self, enabled: bool) -> bool:
         # Applies actuator command and performs any required state transition
