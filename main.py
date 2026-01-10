@@ -2,12 +2,18 @@
 import logging
 import signal
 import time
-import threading
+from threading import Event
+from pathlib import Path
 
-from landing_gear_controller import LandingGearController
 from gear_configuration import GearConfiguration
-from sims.altitude_simulator import AltitudeSimulator
+from landing_gear_controller import LandingGearController
 from app_context import AppContext
+from cli import MutableBool, MutableFloat, PositionSensorBank, ControlLoop, run_rich_cli
+
+try:
+    from fault_recorder import FaultRecorder
+except Exception:
+    FaultRecorder = None
 
 
 def setup_logging():
@@ -21,7 +27,6 @@ def setup_signal_handlers(ctx: AppContext):
     def _handle_shutdown(signum, frame):
         logging.info("Shutdown signal received (%s)", signum)
         ctx.shutdown()
-
     signal.signal(signal.SIGINT, _handle_shutdown)
     signal.signal(signal.SIGTERM, _handle_shutdown)
 
@@ -35,10 +40,9 @@ def initialize() -> AppContext:
         actuator_speed_mm_per_100ms=50.0,
         extension_distance_mm=500,
         lock_time_ms=300,
-        requirement_time_ms=5000,
+        requirement_time_ms=8000,
     )
 
-    # Validates LGCS-FR001 (your existing check)
     deploy_time_ms = config.compute_deploy_time_ms()
     if deploy_time_ms >= 8000:
         raise ValueError(
@@ -46,88 +50,56 @@ def initialize() -> AppContext:
         )
 
     clock = time.monotonic
-    sim = AltitudeSimulator(clock=clock)
+
+    # Rich CLI mutable environment inputs
+    altitude = MutableFloat(5000.0)
+    normal = MutableBool(True)
+    power = MutableBool(True)
+    wow = MutableBool(True)
+    sensors = PositionSensorBank()
+
+    def altitude_provider() -> float:
+        return float(altitude.value)
+
+    def normal_provider() -> bool:
+        return bool(normal.value)
+
+    def power_provider() -> bool:
+        return bool(power.value)
+
+    def sensors_provider():
+        return sensors.get_readings()
+
+    fault_recorder = None
+    if FaultRecorder is not None:
+        fault_recorder = FaultRecorder(filepath=Path("fault_log.txt"), clock=clock)
 
     controller = LandingGearController(
         config=config,
         clock=clock,
-        altitude_provider=sim.read_altitude_ft,
-        normal_conditions_provider=lambda: True,
+        altitude_provider=altitude_provider,
+        normal_conditions_provider=normal_provider,
+        primary_power_present_provider=power_provider,
+        position_sensors_provider=sensors_provider,
+        fault_recorder=fault_recorder,
     )
 
-    from threading import Event
-    ctx = AppContext(
+    controller.set_weight_on_wheels(wow.value)
+
+    loop = ControlLoop(controller, period_s=0.1)
+
+    return AppContext(
         controller=controller,
-        sim=sim,
         config=config,
         clock=clock,
         shutdown_event=Event(),
+        altitude=altitude,
+        normal=normal,
+        power=power,
+        wow=wow,
+        sensors=sensors,
+        loop=loop,
     )
-    return ctx
-
-
-def control_loop(ctx: AppContext, loop_sleep: float = 0.1):
-    logging.info("Starting control loop (tick=%.3fs)", loop_sleep)
-
-    while not ctx.shutdown_event.is_set():
-        try:
-            ctx.sim.update()
-            ctx.controller.update()
-        except Exception:
-            logging.exception("Unhandled exception in control loop")
-
-        time.sleep(loop_sleep)
-
-    logging.info("Control loop terminated")
-
-
-def command_loop(ctx: AppContext):
-    prompt = (
-        "[d]=deploy [u]=retract [wow0]=WOW false [wow1]=WOW true "
-        "[alt N]=set altitude [state]=print state [q]=quit > "
-    )
-
-    while not ctx.shutdown_event.is_set():
-        try:
-            cmd = input(prompt).strip().lower()
-        except (EOFError, KeyboardInterrupt):
-            ctx.shutdown()
-            break
-
-        if cmd == "d":
-            ctx.controller.command_gear_down(True)
-
-        elif cmd == "u":
-            ctx.controller.command_gear_up(True)
-
-        elif cmd == "wow0":
-            ctx.controller.set_weight_on_wheels(False)
-
-        elif cmd == "wow1":
-            ctx.controller.set_weight_on_wheels(True)
-
-        elif cmd.startswith("alt "):
-            try:
-                value = float(cmd.split(maxsplit=1)[1])
-            except ValueError:
-                print("Invalid altitude.")
-                continue
-            ctx.sim.set_altitude_ft(value)
-
-        elif cmd == "state":
-            print(ctx.controller.state)
-
-        elif cmd == "q":
-            ctx.shutdown()
-            break
-
-        elif cmd == "":
-            continue
-
-        else:
-            print("Unknown command.")
-
-    logging.info("Command loop terminated")
 
 
 def main():
@@ -135,12 +107,8 @@ def main():
     ctx = initialize()
     setup_signal_handlers(ctx)
 
-    t = threading.Thread(target=control_loop, args=(ctx,), kwargs={"loop_sleep": 0.1}, daemon=True)
-    t.start()
-
-    command_loop(ctx)
-
-    logging.info("Main loop terminated")
+    # CLI owns run/stop/step. main just hands over control.
+    raise SystemExit(run_rich_cli(ctx))
 
 
 if __name__ == "__main__":
