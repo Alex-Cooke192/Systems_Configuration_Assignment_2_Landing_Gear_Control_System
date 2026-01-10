@@ -430,10 +430,13 @@ class LandingGearController:
         if failed_count == 0:
             return sum(r.position_norm for r in readings) / len(readings)
 
+        fault_code = "MULTIPLE_SENSOR_FAILURE"
         self._maintenance_fault_active = True
-        fault_code = self._maintenance_fault_codes.add("MULTIPLE_SENSOR_FAILURE")
+        self._maintenance_fault_codes.add(fault_code)
         self._record_fault(fault_code)
+        self._mark_fault_classified(fault_code=fault_code, occurrence_ts=self._clock())
         return None
+
 
     def _record_fault(self, fault_code: str) -> None:
         # LGCS-FTHR003:
