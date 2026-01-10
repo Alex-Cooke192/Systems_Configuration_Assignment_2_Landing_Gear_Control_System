@@ -315,6 +315,10 @@ class LandingGearController:
             if self._state in (GearState.FAULT, GearState.ABNORMAL):
                 self.log(f"Deploy ignored: state={self._state.name}")
                 return False
+            
+            if self._state == GearState.RESET:
+                self.log("Command ignored: system in RESET state")
+                return False
 
             if self._state != GearState.UP_LOCKED:
                 self.log(f"Deploy rejected: state={self._state.name}")
@@ -349,6 +353,10 @@ class LandingGearController:
 
             if self._state in (GearState.FAULT, GearState.ABNORMAL):
                 self.log(f"Retract ignored: state={self._state.name}")
+                return False
+            
+            if self._state == GearState.RESET:
+                self.log("Command ignored: system in RESET state")
                 return False
 
             if self._state != GearState.DOWN_LOCKED:
