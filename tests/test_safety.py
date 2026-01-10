@@ -113,3 +113,29 @@ class TestSafety:
         accepted = controller.command_gear_up(True)
         assert accepted is False
         assert controller.state == GearState.DOWN_LOCKED
+
+    def test_sr004_defaults_to_down_and_ignores_pilot_retract_on_power_loss(self):
+        # LGCS-SR004:
+        # Confirm loss of primary control power forces deploy and inhibits pilot input.
+
+        power_present = True
+
+        def power_provider():
+            return power_present
+
+        controller, sim, clock = make_controller_with_fake_clock()
+
+        controller.primary_power_present_provider = power_provider
+
+        # Start UP, then lose power.
+        assert controller.state == GearState.UP_LOCKED
+        power_present = False
+
+        controller.update()
+        assert controller.state == GearState.TRANSITIONING_DOWN
+
+        # Pilot retract command is ignored while power not present.
+        controller.enter_state(GearState.DOWN_LOCKED)
+        controller.set_weight_on_wheels(False)
+        assert controller.command_gear_up(True) is False
+        assert controller.state == GearState.DOWN_LOCKED
