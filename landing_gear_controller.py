@@ -47,6 +47,7 @@ or safety-critical systems.
 import time
 from gear_configuration import GearConfiguration
 from gear_states import GearState
+from sims.position_simulator import PositionSensorReading, SensorStatus
 
 
 class LandingGearController:
@@ -56,7 +57,8 @@ class LandingGearController:
         clock=time.monotonic,
         altitude_provider=None,
         normal_conditions_provider=None,
-        primary_power_present_provider=None
+        primary_power_present_provider=None, 
+        position_sensors_provider=None
     ):
         self._config = config
         self._state = GearState.UP_LOCKED
@@ -94,6 +96,12 @@ class LandingGearController:
         self.primary_power_present_provider = primary_power_present_provider
         self._sr004_power_loss_latched = False
 
+        # Position sensor data
+        self.position_sensors_provider = position_sensors_provider  # returns list[PositionSensorReading]
+        self._maintenance_fault_active = False
+        self._maintenance_fault_codes: set[str] = set()
+
+
     @property
     def state(self) -> GearState:
         return self._state
@@ -122,8 +130,9 @@ class LandingGearController:
         now = self._clock()
         elapsed_s = now - self._state_entered_at
 
-        self._deliver_low_altitude_warning()
+        self._apply_fthr001_single_sensor_failure_handling()
         self._apply_sr004_power_loss_default_down()
+        self._deliver_low_altitude_warning()
         self._apply_sr001_auto_deploy()
 
         if self._state in (GearState.FAULT, GearState.ABNORMAL):
@@ -322,3 +331,37 @@ class LandingGearController:
         if enabled and self._retract_cmd_ts is not None and self._retract_actuation_ts is None:
             self._retract_actuation_ts = self._clock()
         self.log(f"Gear up actuator command: {enabled}")
+
+    def _apply_fthr001_single_sensor_failure_handling(self) -> float | None:
+        # LGCS-FTHR001:
+        # Continue operation using remaining valid sensors after a single sensor failure
+        # and flag a maintenance fault.
+
+        if self.position_sensors_provider is None:
+            return None
+
+        readings = self.position_sensors_provider()
+        if not readings:
+            return None
+
+        valid = [r for r in readings if r.status == SensorStatus.OK]
+
+        failed_count = len(readings) - len(valid)
+
+        if failed_count == 1 and len(valid) >= 1:
+            self._maintenance_fault_active = True
+            self._maintenance_fault_codes.add("FTHR001_SINGLE_SENSOR_FAILURE")
+
+            # Continue using remaining valid sensors (simple average).
+            return sum(r.position_norm for r in valid) / len(valid)
+
+        # If none failed, operate normally using all sensors.
+        if failed_count == 0:
+            return sum(r.position_norm for r in readings) / len(readings)
+
+        # If 2+ sensors failed, this requirement does not cover it.
+        # A separate requirement would define fail-safe action.
+        self._maintenance_fault_active = True
+        self._maintenance_fault_codes.add("MULTIPLE_SENSOR_FAILURE")
+        return None
+
