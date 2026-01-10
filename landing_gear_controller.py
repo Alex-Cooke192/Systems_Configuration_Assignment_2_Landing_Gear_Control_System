@@ -141,7 +141,7 @@ class LandingGearController:
 
         if self._state == GearState.DOWN_LOCKED:
             if self.up_requested():
-                if self.weight_on_wheels():  # LGCS-FR002
+                if self.weight_on_wheels():  # LGCS-FR002/LGCS-SR003
                     self.log("Retract inhibited: weight-on-wheels=TRUE")
                     return
                 self._retract_requested = False
@@ -260,7 +260,7 @@ class LandingGearController:
                 self.log(f"Retract rejected: state={self._state.name}")
                 return False
 
-            if self.weight_on_wheels():
+            if self.weight_on_wheels(): #LGCS-FR003
                 self.log("Retract rejected: weight-on-wheels=TRUE")
                 return False
 
