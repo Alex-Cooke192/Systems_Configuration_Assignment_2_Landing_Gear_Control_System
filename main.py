@@ -8,7 +8,8 @@ from pathlib import Path
 from gear_configuration import GearConfiguration
 from landing_gear_controller import LandingGearController
 from app_context import AppContext
-from cli import MutableBool, MutableFloat, PositionSensorBank, ControlLoop, run_rich_cli
+from cli import run_rich_cli
+from cli_support import MutableBool, MutableFloat, PositionSensorBank, ControlLoop
 
 try:
     from fault_recorder import FaultRecorder
