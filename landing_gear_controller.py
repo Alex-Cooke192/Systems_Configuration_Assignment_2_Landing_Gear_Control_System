@@ -194,6 +194,8 @@ class LandingGearController:
             return
 
         altitude_ft = self.altitude_provider()
+        if altitude_ft is None:
+            return
         normal = self.normal_conditions_provider()
 
         if not normal:
