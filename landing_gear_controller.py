@@ -123,6 +123,10 @@ class LandingGearController:
         self._fault_occurrence_ts: dict[str, float] = {}
         self._fault_classified_ts: dict[str, float] = {}
 
+        # Remember last value (to avoid continuous spamming)
+        self._last_gear_down_cmd: bool | None = None
+        self._last_gear_up_cmd: bool | None = None
+
     @property
     def state(self) -> GearState:
         return self._state
@@ -388,12 +392,16 @@ class LandingGearController:
     def _actuate_down(self, enabled: bool) -> None:
         if enabled and self._deploy_cmd_ts is not None and self._deploy_actuation_ts is None:
             self._deploy_actuation_ts = self._clock()
-        self.log(f"Gear down actuator command: {enabled}")
+        if enabled != self._last_gear_down_cmd:
+            self.log(f"Gear down actuator command: {enabled}")
+            self._last_gear_down_cmd = enabled
 
     def _actuate_up(self, enabled: bool) -> None:
         if enabled and self._retract_cmd_ts is not None and self._retract_actuation_ts is None:
             self._retract_actuation_ts = self._clock()
-        self.log(f"Gear up actuator command: {enabled}")
+        if enabled != self._last_gear_up_cmd:
+            self.log(f"Gear up actuator command: {enabled}")
+            self._last_gear_up_cmd = enabled
     
     def _apply_fthr001_single_sensor_failure_handling(self) -> float | None:
         # LGCS-FTHR001:
