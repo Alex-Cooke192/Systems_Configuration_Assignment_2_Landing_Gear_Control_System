@@ -286,6 +286,11 @@ class LandingGearController:
         now = self._clock()
 
         if enabled:
+            if self.primary_power_present_provider is not None:
+                if not self.primary_power_present_provider():  # LGCS-SR004
+                    self.log("Retract ignored: primary control power not present")
+                    return False
+
             if self._state in (GearState.FAULT, GearState.ABNORMAL):
                 self.log(f"Retract ignored: state={self._state.name}")
                 return False
