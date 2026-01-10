@@ -100,3 +100,16 @@ class TestSafety:
             "WARNING: ALTITUDE LOW - LANDING GEAR NOT DEPLOYED" in m
             for m in messages
         )
+
+    def test_sr003_inhibits_retract_when_weight_on_wheels_true(self):
+        # LGCS-SR003:
+        # Confirm retraction is inhibited when weight-on-wheels is TRUE.
+
+        controller, sim, clock = make_controller_with_fake_clock()
+
+        controller.enter_state(GearState.DOWN_LOCKED)
+        controller.set_weight_on_wheels(True)
+
+        accepted = controller.command_gear_up(True)
+        assert accepted is False
+        assert controller.state == GearState.DOWN_LOCKED
