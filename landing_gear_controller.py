@@ -59,7 +59,8 @@ class LandingGearController:
         altitude_provider=None,
         normal_conditions_provider=None,
         primary_power_present_provider=None,
-        position_sensors_provider=None
+        position_sensors_provider=None, 
+        fault_recorder=None, 
     ):
         self._config = config
         self._state = GearState.UP_LOCKED
@@ -104,6 +105,10 @@ class LandingGearController:
 
         # Position estimate from sensor data 
         self._position_estimate_norm: float | None = None
+
+        # Fault recorder
+        self._fault_recorder = fault_recorder
+        self._recorded_fault_codes: set[str] = set()
 
 
     @property
@@ -362,13 +367,27 @@ class LandingGearController:
 
         if failed_count == 1 and len(valid) >= 1:
             self._maintenance_fault_active = True
-            self._maintenance_fault_codes.add("FTHR001_SINGLE_SENSOR_FAILURE")
+            fault_code = self._maintenance_fault_codes.add("FTHR001_SINGLE_SENSOR_FAILURE")
+            self._record_fault(fault_code)
             return sum(r.position_norm for r in valid) / len(valid)
 
         if failed_count == 0:
             return sum(r.position_norm for r in readings) / len(readings)
 
         self._maintenance_fault_active = True
-        self._maintenance_fault_codes.add("MULTIPLE_SENSOR_FAILURE")
+        fault_code = self._maintenance_fault_codes.add("MULTIPLE_SENSOR_FAILURE")
+        self._record_fault(fault_code)
         return None
+
+    def _record_fault(self, fault_code: str) -> None:
+        # LGCS-FTHR003:
+        # Records detected faults with timestamp and fault code to non-volatile storage.
+        if self.fault_recorder is None:
+            return
+
+        if fault_code in self._recorded_fault_codes:
+            return
+
+        self.fault_recorder.record(fault_code)
+        self._recorded_fault_codes.add(fault_code)
 
