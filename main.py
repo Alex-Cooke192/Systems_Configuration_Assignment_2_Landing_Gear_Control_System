@@ -10,7 +10,7 @@ import threading
 
 from landing_gear_controller import LandingGearController
 from gear_configuration import GearConfiguration
-from altitude_simulator import AltitudeSimulator
+from sims.altitude_simulator import AltitudeSimulator
 
 
 # Global execution flag controlling main loop state
