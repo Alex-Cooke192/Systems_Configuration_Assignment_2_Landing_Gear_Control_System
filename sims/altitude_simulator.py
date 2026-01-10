@@ -1,3 +1,43 @@
+"""
+Title: Altitude Simulator Utility
+Author: Alex Cooke
+Date Created: 2026-01-09
+Last Modified: 2026-01-09
+Version: 1.0
+
+Purpose:
+Provides a lightweight, stochastic altitude simulation model for testing and
+supporting the Landing Gear Control System (LGCS). The simulator generates
+bounded altitude changes with configurable rates and acceleration and supports
+both fixed time-step and injected-clock operation.
+
+Targeted Requirements:
+- None (supporting analysis or tooling only)
+
+Scope and Limitations:
+- Altitude behavior is randomly generated and not based on aerodynamic models
+- Intended solely for test stimulation and simulation support
+- Vertical motion is limited to configurable bounds and rates
+- Does not model aircraft attitude, airspeed, or environmental effects
+
+Safety Notice:
+This software is for academic and illustrative purposes only.
+It is not flight-certified and must not be used in operational systems.
+
+Dependencies:
+- Python 3.10+
+- random (standard library)
+
+Related Documents:
+- LGCS Requirements Specification
+- LGCS Simulation and Test Architecture Documentation
+
+Safety and Certification Disclaimer:
+All artefacts in this repository are produced for academic assessment purposes only.
+They do not represent certified software and must not be used in real-world aviation
+or safety-critical systems.
+"""
+
 import random
 
 

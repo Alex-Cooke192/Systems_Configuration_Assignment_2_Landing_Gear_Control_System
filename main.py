@@ -1,4 +1,48 @@
-#!/usr/bin/env python3
+"""
+Title: Landing Gear Control System Application Entry Point
+Author: Alex Cooke
+Date Created: 2026-01-09
+Last Modified: 2026-01-09
+Version: 1.0
+
+Purpose:
+Initializes and launches the Landing Gear Control System (LGCS) simulation
+environment. This script performs system configuration validation, dependency
+wiring, signal handling setup, and transfers execution control to the interactive
+CLI. It represents the primary executable entry point for the LGCS application.
+
+Targeted Requirements:
+- LGCS-FR001: The landing gear system shall transition from the UP state to the
+  DOWN state in < 8000 milliseconds following a valid deploy command.
+
+Scope and Limitations:
+- Intended for simulation and academic evaluation only
+- Performs startup-time configuration validation but not runtime certification
+- Assumes a POSIX-compatible environment for signal handling
+- Relies on injected simulation components rather than real hardware interfaces
+
+Safety Notice:
+This software is for academic and illustrative purposes only.
+It is not flight-certified and must not be used in operational systems.
+
+Dependencies:
+- Python 3.10+
+- logging (standard library)
+- signal (standard library)
+- threading (standard library)
+- pathlib (standard library)
+
+Related Documents:
+- LGCS Requirements Specification
+- LGCS System Architecture and Integration Notes
+- LGCS CLI Interface Documentation
+
+Safety and Certification Disclaimer:
+All artefacts in this repository are produced for academic assessment purposes only.
+They do not represent certified software and must not be used in real-world aviation
+or safety-critical systems.
+"""
+
 import logging
 import signal
 import time

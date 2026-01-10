@@ -1,4 +1,57 @@
-#!/usr/bin/env python3
+"""
+Title: Interactive CLI and State Annunciation Interface for LGCS
+Author: Alex Cooke
+Date Created: 2026-01-10
+Last Modified: 2026-01-10
+Version: 1.0
+
+Purpose:
+Provides an interactive command-line interface (CLI) for operating and observing
+the Landing Gear Control System (LGCS) in a simulation environment. This module
+enables manual pilot command input, environment manipulation (altitude, power,
+weight-on-wheels), sensor injection, and real-time inspection of controller state,
+fault status, and timing metrics. It also provides visual state annunciation and
+diagnostic visibility to support requirements validation and testing.
+
+Targeted Requirements:
+- LGCS-FR003: The landing gear system shall provide visual status indications for
+  TRANSITIONING_UP, TRANSITIONING_DOWN, UP_LOCKED, and DOWN_LOCKED.
+- LGCS-PR004: Support visibility of fault classification timing for validation.
+(Other requirements are exercised indirectly via controller interaction.)
+
+Scope and Limitations:
+- CLI-only presentation and interaction logic; no graphical user interface.
+- Intended for simulation, test stimulation, and academic validation only.
+- Exposes internal controller attributes for diagnostics and debugging.
+- Not intended to represent certified flight deck controls or displays.
+
+Safety Notice:
+This software is for academic and illustrative purposes only.
+It is not flight-certified and must not be used in operational systems.
+
+Dependencies:
+- Python 3.10+
+- threading (standard library)
+- time (standard library)
+- dataclasses (standard library)
+- typing (standard library)
+- landing_gear_controller.py
+- cli_support.py
+- app_context.py
+- sims/position_simulator.py
+- Optional: fault_recorder.py
+
+Related Documents:
+- LGCS Requirements Specification
+- LGCS CLI and Simulation Test Architecture Notes
+- LGCS System Integration and Validation Report
+
+Safety and Certification Disclaimer:
+All artefacts in this repository are produced for academic assessment purposes only.
+They do not represent certified software and must not be used in real-world aviation
+or safety-critical systems.
+"""
+
 
 import threading
 import time

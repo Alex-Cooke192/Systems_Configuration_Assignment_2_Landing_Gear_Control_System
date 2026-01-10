@@ -1,4 +1,49 @@
-# cli_support.py
+"""
+Title: CLI Support Utilities and Control Loop Abstractions
+Author: Alex Cooke
+Date Created: 2026-01-09
+Last Modified: 2026-01-10
+Version: 1.1
+
+Purpose:
+Provides shared support utilities for the LGCS command-line interface and
+simulation environment. This module defines mutable wrapper types for interactive
+inputs, a thread-safe position sensor bank for fault injection and testing, and
+a lightweight control loop abstraction for driving the LandingGearController
+either step-wise or in a background thread.
+
+Targeted Requirements:
+- None (supporting analysis, simulation, and tooling only)
+
+Scope and Limitations:
+- Intended for CLI-driven simulation and test support only.
+- ControlLoop timing is approximate and not real-time deterministic.
+- Threading model is simplified and not representative of certified avionics tasking.
+- Exposes mutable state for ease of interactive testing, not safety-critical use.
+
+Safety Notice:
+This software is for academic and illustrative purposes only.
+It is not flight-certified and must not be used in operational systems.
+
+Dependencies:
+- Python 3.10+
+- threading (standard library)
+- time (standard library)
+- dataclasses (standard library)
+- typing (standard library)
+- landing_gear_controller.py
+- sims/position_simulator.py
+
+Related Documents:
+- LGCS Requirements Specification
+- LGCS CLI and Simulation Test Architecture Notes
+
+Safety and Certification Disclaimer:
+All artefacts in this repository are produced for academic assessment purposes only.
+They do not represent certified software and must not be used in real-world aviation
+or safety-critical systems.
+"""
+
 import threading
 import time
 from dataclasses import dataclass

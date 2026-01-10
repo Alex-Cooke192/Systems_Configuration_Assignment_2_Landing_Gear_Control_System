@@ -2,25 +2,40 @@
 Title: Landing Gear Control State Machine (LGCS Controller)
 Author: Alex Cooke
 Date Created: 2026-01-09
-Last Modified: 2026-01-09
-Version: 1.0
+Last Modified: 2026-01-10
+Version: 1.6
 
 Purpose:
 Implements a deterministic landing gear control state machine responsible for
-commanding gear deployment and retraction based on system state, timing derived
-from configuration, and safety interlocks such as weight-on-wheels and fault states.
-The controller separates command intent, timing, and actuator outputs to enable
-traceable and testable behavior.
+commanding gear deployment and retraction based on system state, configuration-
+derived timing, and safety interlocks (e.g., weight-on-wheels and power-loss
+behaviour). The controller also integrates basic fault detection/handling using
+position sensor inputs, supports maintenance fault flagging, and optionally
+records faults to non-volatile storage for traceability and test validation.
 
 Targeted Requirements:
 - LGCS-FR001: Landing gear shall transition from UP to DOWN within the required time.
 - LGCS-FR002: Landing gear shall transition from DOWN to UP only when weight-on-wheels = FALSE.
-- LGCS-FR004: Landing gear shall ignore retract commands while in FAULT or ABNORMAL states.
+- LGCS-FR004: Landing gear shall ignore transition commands while in FAULT or ABNORMAL states.
+- LGCS-FR003: Provide state indications for TRANSITIONING_UP, TRANSITIONING_DOWN, UP_LOCKED, DOWN_LOCKED.
+- LGCS-SR001: Auto-deploy when below 1000 ft under normal conditions and gear not DOWN.
+- LGCS-SR002: Low altitude warning when below 2000 ft under normal conditions and gear not DOWN.
+- LGCS-SR003: Weight-on-wheels interlock (supports retract inhibit behaviour).
+- LGCS-SR004: Default to DOWN following loss of primary control power and override pilot input.
+- LGCS-FTHR001: Tolerate a single position sensor failure and continue using remaining valid sensors.
+- LGCS-FTHR002: Persistent (>500 ms) conflicting position sensor inputs cause transition to FAULT.
+- LGCS-FTHR003: Record detected faults with timestamp and code to non-volatile storage.
+- LGCS-FTHR004: Determine gear state from validated sensor inputs after reset.
+- LGCS-PR004: Record fault occurrence and classification timing for validation.
 
 Scope and Limitations:
 - Assumes symmetric deploy and retract timing derived from GearConfiguration.
-- Does not model partial extension, hydraulic failures, or sensor disagreement.
+- Does not model partial extension, hydraulic failures, mechanical jams, or realistic dynamics.
+- Sensor handling is simplified: uses averaging of valid sensors and a fixed disagreement threshold.
 - FAULT and ABNORMAL states are treated as actuator-inhibited safe states.
+- RESET-state sensor determination uses a simple position threshold policy; ambiguous readings
+  default to a prototype-safe UP_LOCKED assumption and may inhibit command acceptance depending
+  on reset validation policy.
 - Intended for simulation, design exploration, and requirements validation only.
 
 Safety Notice:
@@ -29,19 +44,60 @@ It is not flight-certified and must not be used in operational systems.
 
 Dependencies:
 - Python 3.10+
+- time (standard library)
+- typing (standard library)
 - gear_configuration.py
 - gear_states.py
+- sims/position_simulator.py (PositionSensorReading, SensorStatus)
+- Optional: fault_recorder.py (FaultRecorder integration via dependency injection)
 
 Related Documents:
 - LGCS Requirements Specification
 - LGCS System Safety Assessment
 - SRATS-006, SRATS-011 Traceability Records
+- Fault Handling and Diagnostics Notes
 
 Safety and Certification Disclaimer:
 All artefacts in this repository are produced for academic assessment purposes only.
 They do not represent certified software and must not be used in real-world aviation
 or safety-critical systems.
 """
+
+# Change Log (requirements coverage summary):
+#
+# 1.6 (2026-01-10)
+#   - Implemented fault-tolerant sensor logic and fault handling:
+#       * LGCS-FTHR001 (single sensor failure tolerance)
+#       * LGCS-FTHR002 (persistent sensor conflict -> FAULT)
+#       * LGCS-FTHR003 (non-volatile fault recording via FaultRecorder)
+#       * LGCS-FTHR004 (RESET: determine state from sensor inputs)
+#   - Added LGCS-PR004 fault occurrence vs classification timing instrumentation.
+#
+# 1.5 (2026-01-10)
+#   - Implemented LGCS-SR004 power-loss behaviour (override pilot input and default to DOWN when power absent).
+#
+# 1.4 (2026-01-10)
+#   - Implemented altitude-driven safety behaviours:
+#       * LGCS-SR001 auto-deploy (<1000 ft, normal conditions)
+#       * LGCS-SR002 low-altitude warning (<2000 ft, normal conditions)
+#
+# 1.3 (2026-01-09)
+#   - Implemented command/state safety gating:
+#       * LGCS-FR004 ignore/inhibit deploy/retract while in FAULT or ABNORMAL.
+#   - Established state annunciation outputs used by CLI for LGCS-FR003
+#     (UP_LOCKED, DOWN_LOCKED, TRANSITIONING_UP, TRANSITIONING_DOWN).
+#
+# 1.2 (2026-01-09)
+#   - Implemented weight-on-wheels retract interlock:
+#       * LGCS-FR002 (retract only when WOW=FALSE)
+#       * LGCS-SR003 (supports WOW inhibit behaviour)
+#
+# 1.1 (2026-01-09)
+#   - Added retract path + TRANSITIONING_UP state integration (core retraction capability groundwork).
+#
+# 1.0 (2026-01-09)
+#   - Initial deploy state machine implementation and configuration-derived timing:
+#       * LGCS-FR001 (UP -> DOWN within required time under valid deploy command).
 
 
 import time
