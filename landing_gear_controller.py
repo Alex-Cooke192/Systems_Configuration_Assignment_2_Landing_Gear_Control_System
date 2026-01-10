@@ -466,9 +466,12 @@ class LandingGearController:
             self._sensor_conflict_fault_latched = True
             self.enter_state(GearState.FAULT)
 
-            # Optional: record fault (FTHR003) if you added recording support
-            if hasattr(self, "_record_fault"):
-                self._record_fault("FTHR002_SENSOR_CONFLICT_PERSISTENT")
+            fault_code = "FTHR002_SENSOR_CONFLICT_PERSISTENT"
+            self._record_fault(fault_code)
+
+            occurrence_ts = self._sensor_conflict_started_at + self._sensor_conflict_persist_s
+            self._mark_fault_classified(fault_code=fault_code, occurrence_ts=occurrence_ts)
+
 
     def _mark_fault_classified(self, fault_code: str, occurrence_ts: float) -> None:
         # LGCS-PR004:
