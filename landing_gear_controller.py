@@ -186,6 +186,7 @@ class LandingGearController:
             
             # Valid state determined - accept commands
             self.enter_state(determined)
+            self._reset_validated = True
             return
 
         if self._state == GearState.UP_LOCKED:
