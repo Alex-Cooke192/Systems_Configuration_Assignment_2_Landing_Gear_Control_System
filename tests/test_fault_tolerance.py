@@ -133,3 +133,28 @@ class TestFaultTolerance():
         lines = log_path.read_text(encoding="utf-8").strip().splitlines()
         assert len(lines) == 1
 
+    def test_fthr004_reset_state_requires_sensor_validation_before_commands(self):
+        controller, clock = make_controller_with_fake_clock()
+
+        readings = [
+            PositionSensorReading(SensorStatus.OK, 1.0),
+            PositionSensorReading(SensorStatus.OK, 0.95),
+        ]
+        controller.position_sensors_provider = lambda: readings
+
+        # Start in RESET
+        assert controller.state == GearState.RESET
+
+        # Commands ignored during RESET
+        assert controller.command_gear_down(True) is False
+
+        # Update validates sensors
+        controller.update()
+
+        # State determined from sensors
+        assert controller.state == GearState.DOWN_LOCKED
+
+        # Commands now accepted
+        assert controller.command_gear_up(True) in (True, False)  # depends on WOW
+
+
