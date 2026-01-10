@@ -67,6 +67,22 @@ def _print_status(
     print("=============\n")
 
 
+class StateAnnunciator:
+    """
+    FR003: Emits a visual indication whenever the landing gear state changes.
+    CLI-only presentation logic.
+    """
+    def __init__(self):
+        self._last_state = None
+
+    def __call__(self, controller: LandingGearController) -> None:
+        state = controller.state
+        if state != self._last_state:
+            name = state.name if hasattr(state, "name") else str(state)
+            print(f"STATE: {name}")
+            self._last_state = state
+
+
 def _reset_controller(controller: LandingGearController) -> None:
     # Reset transition is performed by returning to RESET state and clearing relevant latches.
     controller.enter_state(GearState.RESET)
@@ -131,6 +147,13 @@ def run_rich_cli(ctx: AppContext) -> int:
     wow = ctx.wow
     sensors = ctx.sensors
     loop = ctx.loop
+
+    annunciator = StateAnnunciator()
+
+    # Attach annunicator to loop tick callback
+    loop._on_tick = annunciator 
+    # Announce state immediately
+    annunciator(controller)
 
     _print_help()
 
