@@ -51,6 +51,36 @@ class TestFaultTolerance():
         assert controller.position_estimate_norm is not None
         assert abs(controller.position_estimate_norm - 0.85) < 1e-6
 
+    def test_fthr002_sensor_conflict_persisting_500ms_enters_fault(self):
+        # LGCS-FTHR002:
+        # Conflicting position sensor inputs persisting >500 ms cause FAULT and inhibit commands.
+
+        controller, clock = make_controller_with_fake_clock()
+
+        readings = [
+            PositionSensorReading(SensorStatus.OK, 0.0),
+            PositionSensorReading(SensorStatus.OK, 1.0),
+        ]
+        controller.position_sensors_provider = lambda: readings
+
+        # First tick starts the persistence timer
+        controller.update()
+        assert controller.state != GearState.FAULT
+
+        # Still conflicting but not long enough
+        clock.advance(0.49)
+        controller.update()
+        assert controller.state != GearState.FAULT
+
+        # Cross the 500 ms threshold
+        clock.advance(0.02)
+        controller.update()
+        assert controller.state == GearState.FAULT
+
+        # Confirm commands are inhibited in FAULT
+        assert controller.command_gear_down(True) is False
+        assert controller.command_gear_up(True) is False
+
     def test_fthr003_records_fault_with_timestamp_and_code(self, tmp_path):
         # LGCS-FTHR003:
         # Confirm detected fault is recorded with timestamp and fault code in non-volatile storage.
