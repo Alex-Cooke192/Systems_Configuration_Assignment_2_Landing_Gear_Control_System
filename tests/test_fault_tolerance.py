@@ -79,3 +79,26 @@ class TestFaultTolerance():
         assert float(ts_str) > 0.0
         assert code == "FTHR001_SINGLE_SENSOR_FAILURE"
 
+    def test_fthr003_does_not_duplicate_same_fault_code(tmp_path):
+        # Ensures each fult is only logged once, even if problem persists (no continuous logging)
+        controller, clock = make_controller_with_fake_clock()
+
+        log_path = tmp_path / "fault_log.txt"
+        controller.fault_recorder = FaultRecorder(filepath=log_path, clock=clock)
+
+        readings = [
+            PositionSensorReading(SensorStatus.OK, 0.8),
+            PositionSensorReading(SensorStatus.OK, 0.9),
+            PositionSensorReading(SensorStatus.FAILED, 0.0),
+        ]
+        controller.position_sensors_provider = lambda: readings
+
+        clock.advance(1.0)
+        controller.update()
+
+        clock.advance(1.0)
+        controller.update()
+
+        lines = log_path.read_text(encoding="utf-8").strip().splitlines()
+        assert len(lines) == 1
+
