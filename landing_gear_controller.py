@@ -110,6 +110,10 @@ class LandingGearController:
     def state(self) -> GearState:
         return self._state
 
+    @property
+    def position_estimate_norm(self) -> float | None:
+        return self._position_estimate_norm
+
     def log(self, msg: str) -> None:
         print(msg)
 
