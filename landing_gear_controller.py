@@ -63,6 +63,42 @@ They do not represent certified software and must not be used in real-world avia
 or safety-critical systems.
 """
 
+# Change Log (requirements coverage summary):
+#
+# 1.6 (2026-01-10)
+#   - Implemented fault-tolerant sensor logic and fault handling:
+#       * LGCS-FTHR001 (single sensor failure tolerance)
+#       * LGCS-FTHR002 (persistent sensor conflict -> FAULT)
+#       * LGCS-FTHR003 (non-volatile fault recording via FaultRecorder)
+#       * LGCS-FTHR004 (RESET: determine state from sensor inputs)
+#   - Added LGCS-PR004 fault occurrence vs classification timing instrumentation.
+#
+# 1.5 (2026-01-10)
+#   - Implemented LGCS-SR004 power-loss behaviour (override pilot input and default to DOWN when power absent).
+#
+# 1.4 (2026-01-10)
+#   - Implemented altitude-driven safety behaviours:
+#       * LGCS-SR001 auto-deploy (<1000 ft, normal conditions)
+#       * LGCS-SR002 low-altitude warning (<2000 ft, normal conditions)
+#
+# 1.3 (2026-01-09)
+#   - Implemented command/state safety gating:
+#       * LGCS-FR004 ignore/inhibit deploy/retract while in FAULT or ABNORMAL.
+#   - Established state annunciation outputs used by CLI for LGCS-FR003
+#     (UP_LOCKED, DOWN_LOCKED, TRANSITIONING_UP, TRANSITIONING_DOWN).
+#
+# 1.2 (2026-01-09)
+#   - Implemented weight-on-wheels retract interlock:
+#       * LGCS-FR002 (retract only when WOW=FALSE)
+#       * LGCS-SR003 (supports WOW inhibit behaviour)
+#
+# 1.1 (2026-01-09)
+#   - Added retract path + TRANSITIONING_UP state integration (core retraction capability groundwork).
+#
+# 1.0 (2026-01-09)
+#   - Initial deploy state machine implementation and configuration-derived timing:
+#       * LGCS-FR001 (UP -> DOWN within required time under valid deploy command).
+
 
 import time
 from gear_configuration import GearConfiguration
