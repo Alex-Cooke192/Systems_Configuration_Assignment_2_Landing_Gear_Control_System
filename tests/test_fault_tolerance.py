@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from landing_gear_controller import LandingGearController
 from gear_configuration import GearConfiguration
 from fault_recorder import FaultRecorder
@@ -119,8 +121,8 @@ class TestFaultTolerance:
         controller.update()
         assert controller.state == GearState.FAULT
 
-        assert controller.command_gear_down() is False
-        assert controller.command_gear_up() is False
+        assert controller.command_gear_down(True) is False
+        assert controller.command_gear_up(True) is False
 
     def test_fthr002_edge_at_exactly_500ms_not_in_fault(self):
         controller, clock = make_controller_with_fake_clock()
@@ -179,7 +181,7 @@ class TestFaultTolerance:
 
         assert controller.state != GearState.FAULT
 
-    def test_fthr003_records_fault_with_timestamp_and_code(self, tmp_path):
+    def test_fthr003_records_fault_with_timestamp_and_code(self, tmp_path: Path):
         controller, clock = make_controller_with_fake_clock()
 
         log_path = tmp_path / "fault_log.txt"
@@ -203,7 +205,7 @@ class TestFaultTolerance:
         assert float(ts_str) > 0.0
         assert code == "FTHR001_SINGLE_SENSOR_FAILURE"
 
-    def test_fthr003_does_not_duplicate_same_fault_code(self, tmp_path):
+    def test_fthr003_does_not_duplicate_same_fault_code(self, tmp_path: Path):
         controller, clock = make_controller_with_fake_clock()
 
         log_path = tmp_path / "fault_log.txt"
@@ -225,7 +227,7 @@ class TestFaultTolerance:
         lines = log_path.read_text(encoding="utf-8").strip().splitlines()
         assert len(lines) == 1
 
-    def test_fthr003_records_multiple_distinct_faults(self, tmp_path):
+    def test_fthr003_records_multiple_distinct_faults(self, tmp_path: Path):
         controller, clock = make_controller_with_fake_clock()
 
         log_path = tmp_path / "fault_log.txt"
@@ -265,13 +267,13 @@ class TestFaultTolerance:
 
         assert controller.state == GearState.RESET
 
-        assert controller.command_gear_down() is False
+        assert controller.command_gear_down(True) is False
 
         controller.update()
 
         assert controller.state == GearState.DOWN_LOCKED
 
-        assert controller.command_gear_up() in (True, False)
+        assert controller.command_gear_up(True) in (True, False)
 
     def test_fthr004_reset_with_invalid_sensors_remains_in_reset(self):
         controller, clock = make_controller_with_fake_clock()
@@ -287,7 +289,7 @@ class TestFaultTolerance:
         controller.update()
 
         assert controller.state == GearState.RESET
-        assert controller.command_gear_down() is False
+        assert controller.command_gear_down(True) is False
 
     def test_fthr004_reset_with_up_sensors_enters_up_locked(self):
         controller, clock = make_controller_with_fake_clock()
