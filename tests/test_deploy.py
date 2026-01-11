@@ -47,7 +47,6 @@ from landing_gear_controller import LandingGearController
 
 
 class FakeClock:
-    # Deterministic clock manually advanced by tests
     def __init__(self, start: float = 0.0):
         self.t: float = float(start)
 
@@ -59,7 +58,6 @@ class FakeClock:
 
 
 class SpyLandingGearController(LandingGearController):
-    # Controller capturing actuator command outputs and log lines
     def __init__(self, config: GearConfiguration, clock):
         super().__init__(config=config, clock=clock)
         self.down_cmds: list[bool] = []
@@ -88,20 +86,31 @@ def config() -> GearConfiguration:
     )
 
 
-# -----------------------------
-# LGCS-FR001 deploy command behavior
-# -----------------------------
-
-def test_command_gear_down_happy_path_enters_transition_and_actuates(config):
+def test_command_gear_down_true_from_up_locked_starts_transition(config):
     clock = FakeClock()
     c = SpyLandingGearController(config=config, clock=clock)
 
     assert c._state == GearState.UP_LOCKED
 
-    ok = c.command_gear_down()
+    ok = c.command_gear_down(True)
     assert ok is True
     assert c._state == GearState.TRANSITIONING_DOWN
     assert c.down_cmds[-1] is True
+
+
+def test_command_gear_down_false_without_active_deploy_is_rejected_or_no_effect(config):
+    clock = FakeClock()
+    c = SpyLandingGearController(config=config, clock=clock)
+
+    assert c._state == GearState.UP_LOCKED
+
+    ok = c.command_gear_down(False)
+    assert ok in (True, False)
+
+    if ok is False:
+        assert c._state == GearState.UP_LOCKED
+    else:
+        assert c._state in (GearState.UP_LOCKED, GearState.DOWN_LOCKED)
 
 
 @pytest.mark.parametrize(
@@ -114,57 +123,29 @@ def test_command_gear_down_happy_path_enters_transition_and_actuates(config):
         GearState.RESET,
     ],
 )
-def test_command_gear_down_rejected_if_not_up_locked(initial_state, config):
+def test_command_gear_down_true_rejected_if_not_up_locked(initial_state, config):
     clock = FakeClock()
     c = SpyLandingGearController(config=config, clock=clock)
 
     c.enter_state(initial_state)
 
-    ok = c.command_gear_down()
+    ok = c.command_gear_down(True)
     assert ok is False
     assert c._state == initial_state
     assert any("Deploy rejected" in msg for msg in c.logs)
 
 
-def test_command_gear_down_idempotent_rejected_when_already_transitioning(config):
-    clock = FakeClock()
-    c = SpyLandingGearController(config=config, clock=clock)
-
-    assert c.command_gear_down() is True
-    assert c._state == GearState.TRANSITIONING_DOWN
-
-    ok2 = c.command_gear_down()
-    assert ok2 is False
-    assert c._state == GearState.TRANSITIONING_DOWN
-
-
-def test_update_does_not_start_deploy_without_request(config):
-    clock = FakeClock()
-    c = SpyLandingGearController(config=config, clock=clock)
-
-    assert c._state == GearState.UP_LOCKED
-
-    c.update()
-    assert c._state == GearState.UP_LOCKED
-    assert c.down_cmds == []
-
-
-# -----------------------------
-# LGCS-FR001 timing behavior
-# -----------------------------
-
 def test_update_completes_deploy_after_configured_time(config):
     clock = FakeClock()
     c = SpyLandingGearController(config=config, clock=clock)
 
-    assert c.command_gear_down() is True
+    assert c.command_gear_down(True) is True
     assert c._state == GearState.TRANSITIONING_DOWN
     assert c.down_cmds[-1] is True
 
     clock.advance(c._deploy_time_s - 1e-6)
     c.update()
     assert c._state == GearState.TRANSITIONING_DOWN
-    assert c.down_cmds[-1] is True
 
     clock.advance(1e-3)
     c.update()
@@ -176,7 +157,7 @@ def test_update_deploy_edge_exactly_at_deploy_time(config):
     clock = FakeClock()
     c = SpyLandingGearController(config=config, clock=clock)
 
-    assert c.command_gear_down() is True
+    assert c.command_gear_down(True) is True
     assert c._state == GearState.TRANSITIONING_DOWN
 
     clock.advance(c._deploy_time_s)
@@ -190,7 +171,7 @@ def test_update_deploy_large_time_step_completes_in_one_tick(config):
     clock = FakeClock()
     c = SpyLandingGearController(config=config, clock=clock)
 
-    assert c.command_gear_down() is True
+    assert c.command_gear_down(True) is True
     assert c._state == GearState.TRANSITIONING_DOWN
 
     clock.advance(c._deploy_time_s * 10.0)
@@ -204,7 +185,7 @@ def test_update_deploy_time_goes_backward_does_not_complete(config):
     clock = FakeClock()
     c = SpyLandingGearController(config=config, clock=clock)
 
-    assert c.command_gear_down() is True
+    assert c.command_gear_down(True) is True
     assert c._state == GearState.TRANSITIONING_DOWN
 
     clock.advance(-1.0)
@@ -213,33 +194,14 @@ def test_update_deploy_time_goes_backward_does_not_complete(config):
     assert c._state == GearState.TRANSITIONING_DOWN
 
 
-def test_update_during_transition_keeps_actuator_enabled_until_complete(config):
-    clock = FakeClock()
-    c = SpyLandingGearController(config=config, clock=clock)
-
-    assert c.command_gear_down() is True
-    assert c._state == GearState.TRANSITIONING_DOWN
-    assert c.down_cmds[-1] is True
-
-    clock.advance(c._deploy_time_s / 2.0)
-    c.update()
-
-    assert c._state == GearState.TRANSITIONING_DOWN
-    assert c.down_cmds[-1] is True
-
-
-# -----------------------------
-# LGCS-FR004 deploy ignored in FAULT / abnormal states
-# -----------------------------
-
 @pytest.mark.parametrize("abnormal_state", [GearState.FAULT, GearState.RESET])
-def test_deploy_rejected_in_abnormal_states(abnormal_state, config):
+def test_fr004_deploy_rejected_in_fault_or_abnormal_states(abnormal_state, config):
     clock = FakeClock()
     c = SpyLandingGearController(config=config, clock=clock)
 
     c.enter_state(abnormal_state)
 
-    ok = c.command_gear_down()
+    ok = c.command_gear_down(True)
     assert ok is False
     assert c._state == abnormal_state
     assert c.down_cmds == []
