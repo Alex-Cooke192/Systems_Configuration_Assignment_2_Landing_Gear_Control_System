@@ -9,9 +9,10 @@
 import dataclasses
 import math
 import pytest
+import random
 
 from sims.position_simulator import SensorStatus, PositionSensorReading
-
+from sims.altitude_simulator import AltitudeSimulator
 
 # -----------------------------
 # SensorStatus enum tests
@@ -117,10 +118,6 @@ def test_position_sensor_reading_hashable_for_use_in_sets():
 # sims.altitude_simulator: AltitudeSimulator tests
 # -------------------------------------------------------------------
 
-import random
-import pytest
-
-from sims.altitude_simulator import AltitudeSimulator
 
 
 class FakeClock:
