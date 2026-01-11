@@ -1,21 +1,22 @@
 # test_simulators.py
 #
-# Unit tests for sims.position_simulator data models.
+# Unit tests for simulator-layer data models and utilities.
 # Scope:
-# - SensorStatus enum members and stability
-# - PositionSensorReading dataclass construction and immutability
-# - Storage behavior for valid/edge/invalid position_norm values
+# - sims.position_simulator: SensorStatus, PositionSensorReading
+# - sims.altitude_simulator: AltitudeSimulator
 
 import dataclasses
 import math
-import pytest
 import random
+
+import pytest
 
 from sims.position_simulator import SensorStatus, PositionSensorReading
 from sims.altitude_simulator import AltitudeSimulator
 
+
 # -----------------------------
-# SensorStatus enum tests
+# sims.position_simulator tests
 # -----------------------------
 
 def test_sensor_status_members_exist():
@@ -31,10 +32,6 @@ def test_sensor_status_is_enum_type():
     assert isinstance(SensorStatus.OK, SensorStatus)
     assert isinstance(SensorStatus.FAILED, SensorStatus)
 
-
-# -----------------------------
-# PositionSensorReading dataclass tests
-# -----------------------------
 
 def test_position_sensor_reading_is_frozen_dataclass():
     assert dataclasses.is_dataclass(PositionSensorReading)
@@ -114,11 +111,10 @@ def test_position_sensor_reading_hashable_for_use_in_sets():
     s = {a, b}
     assert len(s) == 1
 
-# -------------------------------------------------------------------
-# sims.altitude_simulator: AltitudeSimulator tests
-# -------------------------------------------------------------------
 
-
+# -----------------------------
+# sims.altitude_simulator tests
+# -----------------------------
 
 class FakeClock:
     def __init__(self, start: float = 0.0):
@@ -249,6 +245,23 @@ def test_update_uses_injected_clock_and_advances_state():
 
     assert alt1 == sim.read_altitude_ft()
     assert alt1 != alt0
+
+
+def test_update_advances_twice_with_two_clock_steps():
+    rng = random.Random(123)
+    clock = FakeClock(0.0)
+    sim = AltitudeSimulator(rng=rng, clock=clock)
+
+    alt0 = sim.read_altitude_ft()
+
+    clock.advance(0.5)
+    alt1 = sim.update()
+
+    clock.advance(0.5)
+    alt2 = sim.update()
+
+    assert alt1 != alt0
+    assert alt2 != alt1
 
 
 def test_update_with_no_time_advance_returns_same_altitude():
