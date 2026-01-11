@@ -245,7 +245,7 @@ class TestSafety:
         controller.set_weight_on_wheels(False)
 
         accepted = controller.command_gear_up(True)
-        assert accepted in (True, False)
+        assert accepted is True
 
         # If accepted, state should move out of DOWN_LOCKED on subsequent update
         if accepted:
@@ -332,4 +332,4 @@ class TestSafety:
         power_present = True
 
         accepted_on = controller.command_gear_up(True)
-        assert accepted_on in (True, False)
+        assert accepted_on is True
