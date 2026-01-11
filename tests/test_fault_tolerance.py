@@ -1,5 +1,3 @@
-import pytest
-
 from landing_gear_controller import LandingGearController
 from gear_configuration import GearConfiguration
 from fault_recorder import FaultRecorder
@@ -9,7 +7,7 @@ from sims.position_simulator import PositionSensorReading, SensorStatus
 
 class FakeClock:
     def __init__(self, start: float = 0.0):
-        self._t = float(start)
+        self._t: float = float(start)
 
     def __call__(self) -> float:
         return self._t
@@ -18,7 +16,7 @@ class FakeClock:
         self._t += float(dt)
 
 
-def make_controller_with_fake_clock():
+def make_controller_with_fake_clock() -> tuple[LandingGearController, FakeClock]:
     clock = FakeClock()
 
     config = GearConfiguration(
@@ -34,27 +32,7 @@ def make_controller_with_fake_clock():
     return controller, clock
 
 
-def call_command_gear_down(controller) -> bool:
-    # Supports both command_gear_down() and command_gear_down(bool) signatures
-    try:
-        return controller.command_gear_down()
-    except TypeError:
-        return controller.command_gear_down(True)
-
-
-def call_command_gear_up(controller) -> bool:
-    # Supports both command_gear_up() and command_gear_up(bool) signatures
-    try:
-        return controller.command_gear_up()
-    except TypeError:
-        return controller.command_gear_up(True)
-
-
 class TestFaultTolerance:
-    # -----------------------------
-    # LGCS-FTHR001
-    # -----------------------------
-
     def test_fthr001_single_sensor_failure_continues_using_remaining_sensors(self):
         controller, clock = make_controller_with_fake_clock()
 
@@ -87,7 +65,6 @@ class TestFaultTolerance:
         assert controller._maintenance_fault_active is True
         assert "FTHR001_SINGLE_SENSOR_FAILURE" in controller._maintenance_fault_codes
 
-        # Position estimate policy when only one valid sensor remains
         assert controller.position_estimate_norm in (None, 0.7)
 
     def test_fthr001_no_maintenance_fault_when_all_sensors_ok(self):
@@ -122,10 +99,6 @@ class TestFaultTolerance:
         codes = list(controller._maintenance_fault_codes)
         assert codes.count("FTHR001_SINGLE_SENSOR_FAILURE") <= 1
 
-    # -----------------------------
-    # LGCS-FTHR002
-    # -----------------------------
-
     def test_fthr002_conflict_persisting_over_500ms_enters_fault(self):
         controller, clock = make_controller_with_fake_clock()
 
@@ -146,8 +119,8 @@ class TestFaultTolerance:
         controller.update()
         assert controller.state == GearState.FAULT
 
-        assert call_command_gear_down(controller) is False
-        assert call_command_gear_up(controller) is False
+        assert controller.command_gear_down() is False
+        assert controller.command_gear_up() is False
 
     def test_fthr002_edge_at_exactly_500ms_not_in_fault(self):
         controller, clock = make_controller_with_fake_clock()
@@ -164,8 +137,6 @@ class TestFaultTolerance:
         clock.advance(0.50)
         controller.update()
 
-        # Threshold behavior definition: enter fault on >500ms (strict) or >=500ms (inclusive)
-        # This test asserts strict (>500ms) behavior
         assert controller.state != GearState.FAULT
 
     def test_fthr002_conflict_clears_before_500ms_no_fault(self):
@@ -208,15 +179,11 @@ class TestFaultTolerance:
 
         assert controller.state != GearState.FAULT
 
-    # -----------------------------
-    # LGCS-FTHR003
-    # -----------------------------
-
     def test_fthr003_records_fault_with_timestamp_and_code(self, tmp_path):
         controller, clock = make_controller_with_fake_clock()
 
         log_path = tmp_path / "fault_log.txt"
-        controller.fault_recorder = FaultRecorder(filepath=log_path, clock=clock)
+        setattr(controller, "fault_recorder", FaultRecorder(filepath=log_path, clock=clock))
 
         readings = [
             PositionSensorReading(SensorStatus.OK, 0.8),
@@ -240,7 +207,7 @@ class TestFaultTolerance:
         controller, clock = make_controller_with_fake_clock()
 
         log_path = tmp_path / "fault_log.txt"
-        controller.fault_recorder = FaultRecorder(filepath=log_path, clock=clock)
+        setattr(controller, "fault_recorder", FaultRecorder(filepath=log_path, clock=clock))
 
         readings = [
             PositionSensorReading(SensorStatus.OK, 0.8),
@@ -262,7 +229,7 @@ class TestFaultTolerance:
         controller, clock = make_controller_with_fake_clock()
 
         log_path = tmp_path / "fault_log.txt"
-        controller.fault_recorder = FaultRecorder(filepath=log_path, clock=clock)
+        setattr(controller, "fault_recorder", FaultRecorder(filepath=log_path, clock=clock))
 
         single_fail = [
             PositionSensorReading(SensorStatus.OK, 0.8),
@@ -287,10 +254,6 @@ class TestFaultTolerance:
         assert "FTHR001_SINGLE_SENSOR_FAILURE" in text
         assert "FTHR002_SENSOR_CONFLICT_PERSISTENT" in text
 
-    # -----------------------------
-    # LGCS-FTHR004
-    # -----------------------------
-
     def test_fthr004_reset_ignores_commands_until_sensors_validated(self):
         controller, clock = make_controller_with_fake_clock()
 
@@ -302,13 +265,13 @@ class TestFaultTolerance:
 
         assert controller.state == GearState.RESET
 
-        assert call_command_gear_down(controller) is False
+        assert controller.command_gear_down() is False
 
         controller.update()
 
         assert controller.state == GearState.DOWN_LOCKED
 
-        assert call_command_gear_up(controller) in (True, False)
+        assert controller.command_gear_up() in (True, False)
 
     def test_fthr004_reset_with_invalid_sensors_remains_in_reset(self):
         controller, clock = make_controller_with_fake_clock()
@@ -324,7 +287,7 @@ class TestFaultTolerance:
         controller.update()
 
         assert controller.state == GearState.RESET
-        assert call_command_gear_down(controller) is False
+        assert controller.command_gear_down() is False
 
     def test_fthr004_reset_with_up_sensors_enters_up_locked(self):
         controller, clock = make_controller_with_fake_clock()
