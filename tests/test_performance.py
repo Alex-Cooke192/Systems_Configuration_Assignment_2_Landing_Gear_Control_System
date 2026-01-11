@@ -1,144 +1,330 @@
+import pytest
+
 from landing_gear_controller import LandingGearController
 from gear_configuration import GearConfiguration
-from sims.position_simulator import SensorStatus, PositionSensorReading 
+from sims.position_simulator import SensorStatus, PositionSensorReading
 
+
+# -----------------------------
+# Test utilities / helpers
+# -----------------------------
 
 class FakeClock:
     def __init__(self, start: float = 0.0):
-        self._t = start
+        self._t = float(start)
 
     def __call__(self) -> float:
         return self._t
 
     def advance(self, dt: float) -> None:
-        self._t += dt
+        self._t += float(dt)
 
 
-def make_controller_with_fake_clock():
+def make_controller_with_fake_clock(
+    *,
+    pump_latency_ms: int = 0,
+    actuator_speed_mm_per_100ms: float = 100.0,
+    extension_distance_mm: int = 100,
+    lock_time_ms: int = 0,
+    requirement_time_ms: int = 8000,
+):
     clock = FakeClock()
 
     config = GearConfiguration(
         name="TEST",
-        pump_latency_ms=0,
-        actuator_speed_mm_per_100ms=100.0,
-        extension_distance_mm=100,
-        lock_time_ms=0,
-        requirement_time_ms=8000,
+        pump_latency_ms=pump_latency_ms,
+        actuator_speed_mm_per_100ms=actuator_speed_mm_per_100ms,
+        extension_distance_mm=extension_distance_mm,
+        lock_time_ms=lock_time_ms,
+        requirement_time_ms=requirement_time_ms,
     )
 
     controller = LandingGearController(config=config, clock=clock)
     return controller, clock
 
 
-class TestPerformance:
-    #LGCS-PR001
-    def test_pr001_deploy_actuates_within_200ms(self):
+def run_for(controller, clock: FakeClock, *, duration_s: float, step_s: float, on_tick=None):
+    # Fixed-rate update loop used to simulate periodic scheduling in tests
+    if step_s <= 0:
+        raise ValueError("step_s must be > 0")
+
+    steps = int(duration_s / step_s)
+    for _ in range(steps):
+        if on_tick is not None:
+            on_tick(clock())
+        controller.update()
+        clock.advance(step_s)
+
+
+def deltas(timestamps: list[float]) -> list[float]:
+    return [b - a for a, b in zip(timestamps, timestamps[1:])]
+
+
+# -----------------------------
+# LGCS-PR001
+# -----------------------------
+
+class TestPR001:
+    def test_pr001_latency_none_before_any_deploy(self):
+        controller, _clock = make_controller_with_fake_clock()
+        assert controller.deploy_actuation_latency_ms() is None
+
+    def test_pr001_latency_boundary_exact_200ms(self):
         controller, clock = make_controller_with_fake_clock()
 
-        controller.command_gear_down(True)
+        assert controller.command_gear_down() is True
+        clock.advance(0.200)
         controller.update()
 
         latency = controller.deploy_actuation_latency_ms()
         assert latency is not None
         assert latency <= 200.0
 
-    # LGCS-PR002:
-    # Verify gear state indications update at >=10 Hz during deploy transitions
-    def test_state_updates_at_minimum_10hz_during_deploy():
+    def test_pr001_latency_invalid_over_200ms(self):
         controller, clock = make_controller_with_fake_clock()
 
-        # Begin deployment
         assert controller.command_gear_down() is True
+        clock.advance(0.201)
+        controller.update()
+
+        latency = controller.deploy_actuation_latency_ms()
+        assert latency is not None
+        assert latency > 200.0
+
+    def test_pr001_repeated_deploy_does_not_clear_latency(self):
+        controller, clock = make_controller_with_fake_clock()
+
+        assert controller.command_gear_down() is True
+        clock.advance(0.050)
+        controller.update()
+        first = controller.deploy_actuation_latency_ms()
+        assert first is not None
+
+        controller.command_gear_down()
+        clock.advance(0.050)
+        controller.update()
+        second = controller.deploy_actuation_latency_ms()
+        assert second is not None
+
+
+# -----------------------------
+# LGCS-PR002
+# -----------------------------
+
+class TestPR002:
+    def test_pr002_transition_updates_at_10hz_boundary(self):
+        controller, clock = make_controller_with_fake_clock()
+
+        assert controller.command_gear_down() is True
+        controller.update()
         assert controller.state.name.startswith("TRANSITIONING")
 
-        update_timestamps: list[float] = []
+        stamps: list[float] = []
+        run_for(controller, clock, duration_s=1.0, step_s=0.1, on_tick=lambda t: stamps.append(t))
 
-        # Instrument update() calls
-        original_update = controller.update
+        ds = deltas(stamps)
+        assert ds
+        assert all(d <= 0.1 + 1e-9 for d in ds), f"Intervals: {ds}"
 
-        def instrumented_update():
-            update_timestamps.append(clock())
-            original_update()
-
-        controller.update = instrumented_update
-
-        # Simulate 1 second of deploy time
-        SIM_DURATION_MS = 1000
-        STEP_MS = 50  # simulate system tick faster than minimum
-
-        steps = SIM_DURATION_MS // STEP_MS
-
-        for _ in range(steps):
-            controller.update()
-            clock._t += STEP_MS / 1000.0
-
-        # Compute deltas between consecutive updates
-        deltas = [
-            t2 - t1 for t1, t2 in zip(update_timestamps, update_timestamps[1:])
-        ]
-
-        # Requirement: at least 10 Hz => <= 0.1 s between updates
-        assert all(
-            delta <= 0.1 for delta in deltas
-        ), f"Update interval exceeded 100 ms: {deltas}"
-
-    # LGCS-PR003:
-    # Verify that gear state indications are updated at a minimum rate of 4 Hz
-    # while the system is in a steady UP or DOWN state.
-    def test_state_updates_at_minimum_4hz_in_steady_states():
+    def test_pr002_transition_invalid_slower_than_10hz(self):
         controller, clock = make_controller_with_fake_clock()
 
-        # Confirm the controller begins in a steady (non-transitioning) state.
-        assert controller.state.name.startswith("UP") or controller.state.name.startswith("DOWN")
+        assert controller.command_gear_down() is True
+        controller.update()
+        assert controller.state.name.startswith("TRANSITIONING")
 
-        update_timestamps: list[float] = []
+        stamps: list[float] = []
+        run_for(controller, clock, duration_s=1.0, step_s=0.11, on_tick=lambda t: stamps.append(t))
 
-        # Instrument the update path to record indication update timing.
-        original_update = controller.update
+        ds = deltas(stamps)
+        assert ds
+        assert any(d > 0.1 for d in ds), f"Intervals: {ds}"
 
-        def instrumented_update():
-            update_timestamps.append(clock())
-            original_update()
+    def test_pr002_transition_invalid_jitter_includes_violations(self):
+        controller, clock = make_controller_with_fake_clock()
 
-        controller.update = instrumented_update
+        assert controller.command_gear_down() is True
+        controller.update()
+        assert controller.state.name.startswith("TRANSITIONING")
 
-        # Simulate steady-state operation over a bounded interval.
-        SIM_DURATION_MS = 2000
-        STEP_MS = 100
+        stamps: list[float] = []
+        steps = [0.08, 0.08, 0.12, 0.08, 0.12, 0.08]
 
-        steps = SIM_DURATION_MS // STEP_MS
-        for _ in range(steps):
+        for dt in steps:
+            stamps.append(clock())
             controller.update()
-            clock._t += STEP_MS / 1000.0
+            clock.advance(dt)
 
-        # Calculate elapsed time between consecutive indication updates.
-        deltas = [t2 - t1 for t1, t2 in zip(update_timestamps, update_timestamps[1:])]
+        ds = deltas(stamps)
+        assert ds
+        assert any(d > 0.1 for d in ds), f"Intervals: {ds}"
 
-        # Assert compliance with minimum 4 Hz update rate (≤ 250 ms interval).
-        assert all(delta <= 0.25 for delta in deltas), (
-            f"Indication update interval exceeded 250 ms in steady state: {deltas}"
-        )
-    
-    def test_pr004_fault_classification_within_400ms_for_fthr002(self):
+
+# -----------------------------
+# LGCS-PR003
+# -----------------------------
+
+class TestPR003:
+    @pytest.mark.parametrize(
+        "step_s, expected_pass",
+        [
+            (0.25, True),
+            (0.249, True),
+            (0.251, False),
+            (0.10, True),
+        ],
+    )
+    def test_pr003_steady_state_update_rate(self, step_s, expected_pass):
+        controller, clock = make_controller_with_fake_clock()
+
+        assert controller.state.name.startswith(("UP", "DOWN"))
+
+        stamps: list[float] = []
+        run_for(controller, clock, duration_s=2.0, step_s=step_s, on_tick=lambda t: stamps.append(t))
+
+        ds = deltas(stamps)
+        assert ds
+        ok = all(d <= 0.25 + 1e-9 for d in ds)
+        assert ok is expected_pass, f"step_s={step_s}, intervals={ds}"
+
+
+# -----------------------------
+# LGCS-PR004 / FTHR002
+# -----------------------------
+
+class TestPR004:
+    def test_pr004_no_conflict_no_classification(self):
         controller, clock = make_controller_with_fake_clock()
 
         readings = [
             PositionSensorReading(SensorStatus.OK, 0.0),
-            PositionSensorReading(SensorStatus.OK, 1.0),
+            PositionSensorReading(SensorStatus.OK, 0.0),
         ]
         controller.position_sensors_provider = lambda: readings
 
-        controller.update()          # starts conflict timer at t=0.0
-        clock.advance(0.50)          # threshold reached
-        controller.update()          # classification happens at t=0.50
+        controller.update()
+        clock.advance(1.0)
+        controller.update()
 
-        # If your tick is coarse, do classification on next tick:
-        # clock.advance(0.10); controller.update()
+        latency_ms = controller.fault_classification_latency_ms("FTHR002_SENSOR_CONFLICT_PERSISTENT")
+        assert latency_ms is None
+
+    def test_pr004_conflict_clears_before_400ms_not_classified(self):
+        controller, clock = make_controller_with_fake_clock()
+
+        conflict = [
+            PositionSensorReading(SensorStatus.OK, 0.0),
+            PositionSensorReading(SensorStatus.OK, 1.0),
+        ]
+        ok = [
+            PositionSensorReading(SensorStatus.OK, 0.0),
+            PositionSensorReading(SensorStatus.OK, 0.0),
+        ]
+
+        controller.position_sensors_provider = lambda: conflict
+        controller.update()
+
+        clock.advance(0.30)
+        controller.position_sensors_provider = lambda: ok
+        controller.update()
+
+        clock.advance(0.60)
+        controller.update()
+
+        latency_ms = controller.fault_classification_latency_ms("FTHR002_SENSOR_CONFLICT_PERSISTENT")
+        assert latency_ms is None
+
+    def test_pr004_conflict_persists_classified_within_400ms_boundary(self):
+        controller, clock = make_controller_with_fake_clock()
+
+        conflict = [
+            PositionSensorReading(SensorStatus.OK, 0.0),
+            PositionSensorReading(SensorStatus.OK, 1.0),
+        ]
+        controller.position_sensors_provider = lambda: conflict
+
+        controller.update()
+        clock.advance(0.40)
+        controller.update()
 
         latency_ms = controller.fault_classification_latency_ms("FTHR002_SENSOR_CONFLICT_PERSISTENT")
         assert latency_ms is not None
         assert latency_ms <= 400.0
 
+    def test_pr004_conflict_persists_invalid_just_over_400ms(self):
+        controller, clock = make_controller_with_fake_clock()
+
+        conflict = [
+            PositionSensorReading(SensorStatus.OK, 0.0),
+            PositionSensorReading(SensorStatus.OK, 1.0),
+        ]
+        controller.position_sensors_provider = lambda: conflict
+
+        controller.update()
+        clock.advance(0.401)
+        controller.update()
+
+        latency_ms = controller.fault_classification_latency_ms("FTHR002_SENSOR_CONFLICT_PERSISTENT")
+        assert latency_ms is not None
+        assert latency_ms > 400.0
+
+    def test_pr004_failed_sensor_does_not_count_as_ok_ok_conflict(self):
+        controller, clock = make_controller_with_fake_clock()
+
+        readings = [
+            PositionSensorReading(SensorStatus.FAILED, 0.0),
+            PositionSensorReading(SensorStatus.OK, 1.0),
+        ]
+        controller.position_sensors_provider = lambda: readings
+
+        controller.update()
+        clock.advance(1.0)
+        controller.update()
+
+        latency_ms = controller.fault_classification_latency_ms("FTHR002_SENSOR_CONFLICT_PERSISTENT")
+        assert latency_ms is None
 
 
-        
+# -----------------------------
+# Position sensor edge/invalid cases
+# -----------------------------
+
+class TestPositionNorm:
+    @pytest.mark.parametrize("pos", [-0.1, -1.0, 1.1, 2.0])
+    def test_position_norm_out_of_range_does_not_raise(self, pos):
+        controller, _clock = make_controller_with_fake_clock()
+
+        readings = [
+            PositionSensorReading(SensorStatus.OK, pos),
+            PositionSensorReading(SensorStatus.OK, 0.0),
+        ]
+        controller.position_sensors_provider = lambda: readings
+
+        controller.update()
+
+    @pytest.mark.parametrize("pos", [float("inf"), float("-inf"), float("nan")])
+    def test_position_norm_non_finite_does_not_raise(self, pos):
+        controller, _clock = make_controller_with_fake_clock()
+
+        readings = [
+            PositionSensorReading(SensorStatus.OK, pos),
+            PositionSensorReading(SensorStatus.OK, 0.0),
+        ]
+        controller.position_sensors_provider = lambda: readings
+
+        controller.update()
+
+    def test_position_norm_endpoints_does_not_raise(self):
+        controller, _clock = make_controller_with_fake_clock()
+
+        controller.position_sensors_provider = lambda: [
+            PositionSensorReading(SensorStatus.OK, 0.0),
+            PositionSensorReading(SensorStatus.OK, 0.0),
+        ]
+        controller.update()
+
+        controller.position_sensors_provider = lambda: [
+            PositionSensorReading(SensorStatus.OK, 1.0),
+            PositionSensorReading(SensorStatus.OK, 1.0),
+        ]
+        controller.update()
