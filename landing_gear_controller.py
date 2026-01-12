@@ -182,23 +182,8 @@ class LandingGearController:
         # Remember last value (to avoid continuous spamming)
         self._last_gear_down_cmd: bool | None = None
         self._last_gear_up_cmd: bool | None = None
+        
 
-        # Initialise state using sensors
-        self._initialise_state_from_sensors()
-
-    def _initialise_state_from_sensors(self) -> None:
-        if self._state != GearState.RESET:
-            return
-
-        determined = self._determine_state_from_sensors()
-        if determined is None:
-            self.enter_state(GearState.UP_LOCKED)
-            self._reset_validated = True   # <-- important for accepting commands
-            self.log("RESET: sensors unknown, defaulting to UP_LOCKED")
-            return
-
-        self.enter_state(determined)
-        self._reset_validated = True
 
     @property
     def state(self) -> GearState:
