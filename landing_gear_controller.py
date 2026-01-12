@@ -102,8 +102,15 @@ class LandingGearController:
         fault_recorder=None,
     ):
         self._config = config
-        self._state = GearState.RESET
-        self._reset_validated = False
+        # Default boot policy (to satisfy PR003 + enable PR002 deploy):
+        # - If no sensors provider is wired at construction time, start in UP_LOCKED.
+        # - If sensors are provided, start in RESET and let update() validate via FTHR004.
+        if position_sensors_provider is None:
+            self._state = GearState.UP_LOCKED
+            self._reset_validated = True
+        else:
+            self._state = GearState.RESET
+            self._reset_validated = False
 
         self._clock = clock
         self._state_entered_at = self._clock()
