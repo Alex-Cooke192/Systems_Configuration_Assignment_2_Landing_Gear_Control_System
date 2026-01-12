@@ -564,7 +564,7 @@ class LandingGearController:
             self._sensor_conflict_started_at = now
             return
 
-        if (now - self._sensor_conflict_started_at) >= self._sensor_conflict_persist_s:
+        if (now - self._sensor_conflict_started_at) > self._sensor_conflict_persist_s:
             self._sensor_conflict_fault_latched = True
             self.enter_state(GearState.FAULT)
 
