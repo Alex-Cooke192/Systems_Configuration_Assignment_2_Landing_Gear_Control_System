@@ -59,10 +59,10 @@ class FakeClock:
 
 class SpyLandingGearController(LandingGearController):
     def __init__(self, config: GearConfiguration, clock):
-        super().__init__(config=config, clock=clock)
         self.down_cmds: list[bool] = []
         self.up_cmds: list[bool] = []
         self.logs: list[str] = []
+        super().__init__(config=config, clock=clock)
 
     def log(self, msg: str) -> None:
         self.logs.append(msg)
