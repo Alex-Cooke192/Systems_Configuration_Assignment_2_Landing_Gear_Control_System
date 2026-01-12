@@ -376,7 +376,7 @@ class LandingGearController:
 
             elapsed_s = now - self._state_entered_at
             if elapsed_s < 0:
-                # If time goes backwards, do not complete the transition this tick.
+                # If time goes backwards, do not complete the transition this tick (condition for robustness)
                 return
 
             if elapsed_s >= self._deploy_time_s:
@@ -396,7 +396,7 @@ class LandingGearController:
             self._actuate_up(True)
 
             elapsed_s = now - self._state_entered_at
-            if elapsed_s < 0:
+            if elapsed_s < 0: # If time goes backwards (this condition is purely for robustness)
                 return
 
             if elapsed_s >= self._deploy_time_s:
