@@ -117,7 +117,7 @@ def initialize() -> AppContext:
 
     fault_recorder = None
     if FaultRecorder is not None:
-        fault_recorder = FaultRecorder(filepath=Path("fault_log.txt"), clock=clock)
+        fault_recorder = FaultRecorder(filepath=Path("logs/fault_log.txt"), clock=clock)
 
     controller = LandingGearController(
         config=config,

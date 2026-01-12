@@ -65,6 +65,7 @@ from landing_gear_controller import LandingGearController
 from sims.position_simulator import PositionSensorReading, SensorStatus
 from cli_support import MutableBool, MutableFloat, PositionSensorBank, ControlLoop
 from app_context import AppContext
+from command_recorder import CommandRecorder
 
 try:
     from fault_recorder import FaultRecorder
@@ -203,6 +204,9 @@ def run_rich_cli(ctx: AppContext) -> int:
 
     annunciator = StateAnnunciator()
 
+    cmd_log_path = Path("logs/cli_commands.csv")
+    recorder = CommandRecorder(filepath=cmd_log_path, clock=ctx.clock)
+
     # Attach annunicator to loop tick callback
     loop._on_tick = annunciator 
     # Announce state immediately
@@ -210,110 +214,146 @@ def run_rich_cli(ctx: AppContext) -> int:
 
     _print_help()
 
-    while not ctx.shutdown_event.is_set():
-        try:
-            cmd = input("> ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print()
-            ctx.shutdown()
-            break
+    def record(command: str, action: str, success: bool) -> None:
+        recorder.record(command=command, action=action, success=success)
 
+    def dispatch(raw_cmd: str) -> bool:
+        """
+        Executes one CLI command line.
+        Returns True if the CLI should continue running, False to exit.
+        Always records (action, success) for audit.
+        """
+        cmd = raw_cmd.strip()
         if not cmd:
-            continue
+            return True
 
         parts = cmd.split()
         op = parts[0].lower()
 
+        # ---------- Exit / help ----------
         if op in ("q", "quit", "exit"):
+            record(cmd, "quit", True)
             ctx.shutdown()
-            break
+            return False
 
         if op in ("help", "?"):
             _print_help()
-            continue
+            record(cmd, "help", True)
+            return True
 
+        # ---------- Loop control ----------
         if op == "run":
-            if len(parts) >= 2:
-                loop.set_period(float(parts[1]))
-            loop.start()
-            print(f"Loop running @ {loop.period_s:.3f}s")
-            continue
+            try:
+                if len(parts) >= 2:
+                    loop.set_period(float(parts[1]))
+                loop.start()
+                print(f"Loop running @ {loop.period_s:.3f}s")
+                record(cmd, "run_loop", True)
+            except Exception:
+                record(cmd, "run_loop", False)
+                raise
+            return True
 
         if op == "stop":
             loop.stop()
             print("Loop stopped")
-            continue
+            record(cmd, "stop_loop", True)
+            return True
 
         if op == "period":
             if len(parts) != 2:
                 print("Usage: period <seconds>")
-                continue
-            loop.set_period(float(parts[1]))
-            print(f"Loop period set to {loop.period_s:.3f}s")
-            continue
+                record(cmd, "set_period", False)
+                return True
+            try:
+                loop.set_period(float(parts[1]))
+                print(f"Loop period set to {loop.period_s:.3f}s")
+                record(cmd, "set_period", True)
+            except Exception:
+                record(cmd, "set_period", False)
+                raise
+            return True
 
         if op == "step":
-            n = int(parts[1]) if len(parts) >= 2 else 1
-            loop.step(n)
-            print(f"Stepped {n} ticks")
-            continue
+            try:
+                n = int(parts[1]) if len(parts) >= 2 else 1
+                loop.step(n)
+                print(f"Stepped {n} ticks")
+                record(cmd, "step", True)
+            except Exception:
+                record(cmd, "step", False)
+                raise
+            return True
 
+        # ---------- Pilot commands ----------
         if op == "d":
             accepted = controller.command_gear_down(True)
             print(f"Deploy accepted: {accepted}")
-            continue
+            record(cmd, "deploy", bool(accepted))
+            return True
 
         if op == "u":
             accepted = controller.command_gear_up(True)
             print(f"Retract accepted: {accepted}")
-            continue
+            record(cmd, "retract", bool(accepted))
+            return True
 
+        # ---------- Environment ----------
         if op == "wow":
             if len(parts) != 2 or parts[1] not in ("0", "1"):
                 print("Usage: wow 0|1")
-                continue
+                record(cmd, "set_wow", False)
+                return True
             wow.value = (parts[1] == "1")
             controller.set_weight_on_wheels(wow.value)
             print(f"WOW set to {wow.value}")
-            continue
+            record(cmd, "set_wow", True)
+            return True
 
         if op == "alt":
             if len(parts) != 2:
                 print("Usage: alt <feet>")
-                continue
+                record(cmd, "set_altitude", False)
+                return True
             altitude.value = float(parts[1])
             print(f"Altitude set to {altitude.value:.1f} ft")
-            continue
+            record(cmd, "set_altitude", True)
+            return True
 
         if op == "normal":
             if len(parts) != 2 or parts[1] not in ("0", "1"):
                 print("Usage: normal 0|1")
-                continue
+                record(cmd, "set_normal", False)
+                return True
             normal.value = (parts[1] == "1")
             print(f"Normal conditions set to {normal.value}")
-            continue
+            record(cmd, "set_normal", True)
+            return True
 
         if op == "power":
             if len(parts) != 2 or parts[1] not in ("0", "1"):
                 print("Usage: power 0|1")
-                continue
+                record(cmd, "set_power", False)
+                return True
             power.value = (parts[1] == "1")
             print(f"Primary power present set to {power.value}")
-            continue
+            record(cmd, "set_power", True)
+            return True
 
+        # ---------- Sensors ----------
         if op == "sens":
             if len(parts) == 2 and parts[1].lower() == "show":
                 print("Sensors:", ", ".join(_fmt_sensor(r) for r in sensors.get_readings()))
-                continue
+                record(cmd, "sens_show", True)
+                return True
 
             if len(parts) < 3:
                 print("Usage: sens ok <v> ok <v> ...  OR  sens mix ok <v> fail <v> ...")
-                continue
+                record(cmd, "sens_set", False)
+                return True
 
             mode = parts[1].lower()
             tokens = parts[2:]
-
-            new_readings: list[PositionSensorReading] = []
 
             def parse_pairs(tok: list[str]) -> list[tuple[str, float]]:
                 out: list[tuple[str, float]] = []
@@ -327,14 +367,17 @@ def run_rich_cli(ctx: AppContext) -> int:
                 pairs = parse_pairs(tokens)
             except Exception as e:
                 print(f"Invalid sensor input: {e}")
-                continue
+                record(cmd, "sens_set", False)
+                return True
+
+            new_readings: list[PositionSensorReading] = []
 
             if mode == "ok":
                 for kind, v in pairs:
                     if kind != "ok":
                         print("Mode 'ok' only accepts 'ok <v>' pairs")
-                        new_readings = []
-                        break
+                        record(cmd, "sens_set", False)
+                        return True
                     new_readings.append(PositionSensorReading(SensorStatus.OK, v))
 
             elif mode == "mix":
@@ -345,56 +388,74 @@ def run_rich_cli(ctx: AppContext) -> int:
                         new_readings.append(PositionSensorReading(SensorStatus.FAILED, v))
                     else:
                         print("Mode 'mix' accepts 'ok <v>' and 'fail <v>' pairs")
-                        new_readings = []
-                        break
+                        record(cmd, "sens_set", False)
+                        return True
             else:
                 print("Usage: sens ok <v> ok <v> ...  OR  sens mix ok <v> fail <v> ...")
-                continue
-
-            if not new_readings:
-                continue
+                record(cmd, "sens_set", False)
+                return True
 
             sensors.set_readings(new_readings)
             print("Sensors set:", ", ".join(_fmt_sensor(r) for r in sensors.get_readings()))
-            continue
+            record(cmd, "sens_set", True)
+            return True
 
+        # ---------- Diagnostics ----------
         if op == "state":
             print(controller.state.name)
-            continue
+            record(cmd, "query_state", True)
+            return True
 
         if op == "status":
             _print_status(controller, altitude, normal, power, wow, sensors)
-            continue
+            record(cmd, "status", True)
+            return True
 
         if op == "lat":
             if len(parts) != 2:
                 print("Usage: lat <fault_code>")
-                continue
+                record(cmd, "latency", False)
+                return True
             code = parts[1]
             if hasattr(controller, "fault_classification_latency_ms"):
                 lat = controller.fault_classification_latency_ms(code)
                 print(f"{code}: {lat} ms")
+                record(cmd, "latency", True)
             else:
                 print("PR004 latency API not present")
-            continue
+                record(cmd, "latency", False)
+            return True
 
         if op == "faults":
             mf_codes = getattr(controller, "_maintenance_fault_codes", set())
             rec = getattr(controller, "_recorded_fault_codes", set())
             print("MaintenanceFaultCodes:", sorted(list(mf_codes)))
             print("RecordedFaultCodes:", sorted(list(rec)))
-            continue
+            record(cmd, "faults", True)
+            return True
 
         if op == "reset":
             _reset_controller(controller)
             print("Controller reset to RESET state")
-            continue
+            record(cmd, "reset", True)
+            return True
 
         print("Unknown command. Type 'help'.")
+        record(cmd, "unknown", False)
+        return True
 
-    loop.stop()
-    return 0
 
+    while not ctx.shutdown_event.is_set():
+        try:
+            raw = input("> ")
+        except (EOFError, KeyboardInterrupt):
+            print()
+            ctx.shutdown()
+            break
+
+        # dispatch handles strip/empty
+        if not dispatch(raw):
+            break
 
 if __name__ == "__main__":
     from main import initialize
