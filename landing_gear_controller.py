@@ -192,6 +192,14 @@ class LandingGearController:
     @property
     def position_estimate_norm(self) -> float | None:
         return self._position_estimate_norm
+    
+    @property
+    def fault_recorder(self):
+        return self._fault_recorder
+
+    @fault_recorder.setter
+    def fault_recorder(self, recorder) -> None:
+        self._fault_recorder = recorder
 
     def log(self, msg: str) -> None:
         print(msg)
