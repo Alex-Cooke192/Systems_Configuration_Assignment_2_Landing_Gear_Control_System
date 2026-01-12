@@ -206,10 +206,11 @@ Following a loss of primary control power, the landing gear system shall default
 ---
 
 ## Fault Tolerance & Handling Requirements (FTHR)
+
+### LGCS-FTHR001 – Single Sensor Failure Tolerance
 **Requirement:**
 Upon detection of exactly one landing gear position sensor as FAILED, the system shall continue operation using remaining valid sensors and flag a maintenance fault. 
 
-### LGCS-FTHR001 – Single Sensor Failure Tolerance
 **Implementation:**  
 - Position sensor fusion logic
 - Maintenance fault tracking
