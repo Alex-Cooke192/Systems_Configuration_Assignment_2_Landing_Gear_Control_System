@@ -213,6 +213,7 @@ class LandingGearController:
     def enter_state(self, new_state: GearState) -> None:
         self._state = new_state
         self._state_entered_at = self._clock()
+        self.log(f"STATE: {new_state.name}")
 
     def down_requested(self) -> bool:
         return self._deploy_requested
