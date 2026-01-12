@@ -223,7 +223,6 @@ class LandingGearController:
     def update(self) -> None:
         # Advances landing gear state machine by one control tick
         now = self._clock()
-        elapsed_s = now - self._state_entered_at
 
         self._apply_fthr002_conflicting_position_sensors_fault()
 
@@ -266,6 +265,11 @@ class LandingGearController:
             # Maintains actuation during transition
             self._actuate_down(True)
 
+            # time now computed locally, enabling tracking of state changes within the same tick
+            elapsed_s = now - self._state_entered_at
+            if elapsed_s < 0:
+                return
+
             # Completes transition using computed deploy time
             if elapsed_s >= self._deploy_time_s:
                 self.command_gear_down(False)
@@ -283,6 +287,11 @@ class LandingGearController:
         if self._state == GearState.TRANSITIONING_UP:
             # Maintain actuation during retraction
             self._actuate_up(True)
+
+            # time now computed locally, enabling tracking of state changes within the same tick
+            elapsed_s = now - self._state_entered_at
+            if elapsed_s < 0:
+                return
 
             # Complete transition using computed deploy time
             if elapsed_s >= self._deploy_time_s:
