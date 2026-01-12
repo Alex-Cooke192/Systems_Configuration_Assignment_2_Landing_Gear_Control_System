@@ -592,6 +592,11 @@ class LandingGearController:
         self._recorded_fault_codes.add(fault_code)
 
     def _apply_fthr002_conflicting_position_sensors_fault(self) -> None:
+        # FTHR002: Persistent sensor conflict (>500ms) => enter FAULT
+        # PR004: Record classification timing at 400ms boundary for validation
+
+        fault_code = "FTHR002_SENSOR_CONFLICT_PERSISTENT"
+
         if self.position_sensors_provider is None:
             self._sensor_conflict_started_at = None
             return
@@ -603,6 +608,7 @@ class LandingGearController:
 
         valid = [r for r in readings if r.status == SensorStatus.OK]
         if len(valid) < 2:
+            # Not an OK/OK conflict case
             self._sensor_conflict_started_at = None
             return
 
@@ -616,23 +622,31 @@ class LandingGearController:
             self._sensor_conflict_started_at = None
             return
 
-        if self._sensor_conflict_fault_latched:
-            return
-
+        # Start conflict timer
         if self._sensor_conflict_started_at is None:
             self._sensor_conflict_started_at = now
             return
 
-        # FTHR002: must be strictly > 500ms (edge at exactly 500ms should not fault)
-        if (now - self._sensor_conflict_started_at) > self._sensor_conflict_persist_s:
+        persisted_s = now - self._sensor_conflict_started_at
+        if persisted_s < 0:
+            return
+
+        # --- PR004: record classification at >= 400ms (boundary inclusive) ---
+        if persisted_s >= 0.4:
+            # occurrence is when conflict began, classification is "now"
+            self._mark_fault_classified(
+                fault_code=fault_code,
+                occurrence_ts=self._sensor_conflict_started_at,
+            )
+
+        # --- FTHR002: enter FAULT at strictly > 500ms ---
+        if self._sensor_conflict_fault_latched:
+            return
+
+        if persisted_s > 0.5:
             self._sensor_conflict_fault_latched = True
             self.enter_state(GearState.FAULT)
-
-            fault_code = "FTHR002_SENSOR_CONFLICT_PERSISTENT"
             self._record_fault(fault_code)
-
-            occurrence_ts = self._sensor_conflict_started_at + self._sensor_conflict_persist_s
-            self._mark_fault_classified(fault_code=fault_code, occurrence_ts=occurrence_ts)
 
     def _mark_fault_classified(self, fault_code: str, occurrence_ts: float) -> None:
         if fault_code in self._fault_classified_ts:
