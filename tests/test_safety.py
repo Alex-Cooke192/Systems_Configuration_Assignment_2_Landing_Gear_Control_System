@@ -1,3 +1,55 @@
+"""
+Title: Landing Gear Safety Requirements Unit Tests
+Author: Alex Cooke
+Date Created: 2026-01-10
+Last Modified: 2026-01-10
+Version: 1.0
+
+Purpose:
+Provides unit-level verification of safety-related requirements implemented
+in the LandingGearController. These tests validate automatic gear deployment
+based on altitude, low-altitude warning annunciation, weight-on-wheels
+inhibition logic, and safe behavior during primary power loss and restoration.
+
+Targeted Requirements (Verification Only):
+- LGCS-SR001: Verification of automatic landing gear deployment below
+  defined altitude thresholds under normal operating conditions.
+- LGCS-SR002: Verification of low-altitude warning annunciation when the
+  landing gear is not deployed.
+- LGCS-SR003: Verification of retract inhibition when weight-on-wheels
+  is TRUE and correct retract behavior when conditions permit.
+- LGCS-SR004: Verification of safe landing gear behavior during primary
+  power loss and recovery.
+
+Scope and Limitations:
+- Tests safety logic only; normal and fault-handling logic is exercised
+  only where required by safety requirements.
+- Uses simulated altitude, power, and weight-on-wheels inputs.
+- No real sensors, electrical power sources, or flight hardware are used.
+- Does not validate cockpit UI hardware or human factors.
+
+Safety Notice:
+This file is a test artefact intended solely for verification and assessment.
+It must not be used in operational or flight-certified systems.
+
+Dependencies:
+- Python 3.10+
+- pytest
+- landing_gear_controller.py
+- gear_configuration.py
+- gear_states.py
+- sims.altitude_simulator.py
+
+Related Documents:
+- LGCS Unit Test Plan
+- LGCS Safety Requirements Specification
+
+Safety and Certification Disclaimer:
+All artefacts in this repository are produced for academic assessment purposes only.
+They do not represent certified software and must not be used in real-world aviation
+or safety-critical systems.
+"""
+
 import random
 import pytest
 
