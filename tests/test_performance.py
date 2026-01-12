@@ -1,3 +1,58 @@
+"""
+Title: Landing Gear Performance and Robustness Unit Tests
+Author: Alex Cooke
+Date Created: 2026-01-10
+Last Modified: 2026-01-10
+Version: 1.0
+
+Purpose:
+Provides unit-level verification of performance-related requirements and
+robustness behavior implemented in the LandingGearController. These tests
+validate actuation latency measurement, update-rate compliance during
+transitions and steady states, fault classification timing, and safe
+handling of invalid or out-of-range position sensor inputs.
+
+Targeted Requirements (Verification Only):
+- LGCS-PR001: Verification of deploy actuation latency measurement and
+  boundary behavior.
+- LGCS-PR002: Verification of controller update-rate compliance during
+  transition states.
+- LGCS-PR003: Verification of steady-state update-rate compliance.
+- LGCS-PR004: Verification of fault classification latency and boundary
+  conditions.
+- FTHR002: Verification that sensor conflicts are classified within
+  required time bounds.
+- POS-ROBUST-001: Verification of robustness against invalid, non-finite,
+  or out-of-range position normalization values.
+
+Scope and Limitations:
+- Tests controller timing, classification, and robustness logic only.
+- Uses a deterministic fake clock and simulated periodic scheduling.
+- No real hardware, real-time OS, or physical sensors are involved.
+- Does not validate physical actuator dynamics or mechanical limits.
+
+Safety Notice:
+This file is a test artefact intended solely for verification and assessment.
+It must not be used in operational or flight-certified systems.
+
+Dependencies:
+- Python 3.10+
+- pytest
+- landing_gear_controller.py
+- gear_configuration.py
+- sims.position_simulator.py
+
+Related Documents:
+- LGCS Unit Test Plan
+- LGCS Performance Requirements Specification
+- LGCS Fault Tolerance Requirements Specification
+
+Safety and Certification Disclaimer:
+All artefacts in this repository are produced for academic assessment purposes only.
+They do not represent certified software and must not be used in real-world aviation
+or safety-critical systems.
+"""
+
 import pytest
 
 from landing_gear_controller import LandingGearController
