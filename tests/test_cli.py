@@ -1,3 +1,51 @@
+"""
+Title: Landing Gear State Annunciation and Fault Handling Unit Tests
+Author: Alex Cooke
+Date Created: 2026-01-10
+Last Modified: 2026-01-10
+Version: 1.0
+
+Purpose:
+Provides unit-level verification of landing gear state annunciation and
+command rejection behavior implemented in the LandingGearController and
+CLI StateAnnunciator. These tests validate that required gear states are
+annunciated correctly and that invalid retract commands are ignored in
+abnormal or fault conditions.
+
+Targeted Requirements (Verification Only):
+- LGCS-FR003: Verification that TRANSITIONING_UP, TRANSITIONING_DOWN,
+  UP_LOCKED, and DOWN_LOCKED states are annunciated to the CLI.
+- LGCS-FR004: Verification that retract commands are ignored in FAULT
+  and other abnormal states.
+
+Scope and Limitations:
+- Tests controller and CLI annunciation logic only.
+- No real hardware, UI, or timing sources are used.
+- Output verification is limited to CLI stdout behavior.
+- Does not validate real-time scheduling or operator interface hardware.
+
+Safety Notice:
+This file is a test artefact intended solely for verification and assessment.
+It must not be used in operational or flight-certified systems.
+
+Dependencies:
+- Python 3.10+
+- pytest
+- cli.py (StateAnnunciator)
+- landing_gear_controller.py
+- gear_configuration.py
+- gear_states.py
+
+Related Documents:
+- LGCS Unit Test Plan
+- LGCS Requirements Specification
+
+Safety and Certification Disclaimer:
+All artefacts in this repository are produced for academic assessment purposes only.
+They do not represent certified software and must not be used in real-world aviation
+or safety-critical systems.
+"""
+
 import pytest
 
 from cli import StateAnnunciator
