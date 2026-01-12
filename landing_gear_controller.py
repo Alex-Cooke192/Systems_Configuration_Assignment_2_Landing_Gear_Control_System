@@ -452,14 +452,18 @@ class LandingGearController:
 
             self._deploy_requested = False
 
-            # PR001: allow new command timestamp, but DO NOT clear latched latency measurement.
+            # PR001: stamp command time now; actuator will start on a later update tick.
             self._deploy_cmd_ts = now
-            if self._deploy_latency_ms_latched is None:
-                # Only clear actuation timestamp if we still need to measure latency.
+
+            # Do NOT clear an existing actuation timestamp (keeps latency non-None after it is measured)
+            if self._deploy_actuation_ts is None:
+                # Prepare to measure actuation start time on the next update
                 self._deploy_actuation_ts = None
 
             self._deploy_transition_ts = now
-            self._actuate_down(True)
+
+            # IMPORTANT: do NOT call _actuate_down(True) here.
+            # update() in TRANSITIONING_DOWN must do that.
             self.enter_state(GearState.TRANSITIONING_DOWN)
             return True
 
