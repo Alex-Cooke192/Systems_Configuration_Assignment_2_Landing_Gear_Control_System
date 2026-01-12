@@ -347,6 +347,7 @@ class LandingGearController:
         self._deliver_low_altitude_warning()
         self._apply_sr001_auto_deploy()
 
+        # Check if any of those tests caused fault/abnormal, stop early
         if self._state in (GearState.FAULT, GearState.ABNORMAL):
             self._actuate_down(False)
             self._actuate_up(False)
