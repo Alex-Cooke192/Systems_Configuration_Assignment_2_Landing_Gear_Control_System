@@ -134,7 +134,7 @@ class LandingGearController:
         # Warning latch for SR002
         self._low_alt_warning_active = False
 
-        self._weight_on_wheels: bool = True
+        self._weight_on_wheels: bool = False
 
         # Timing instrumentation
         self._deploy_cmd_ts: float | None = None
