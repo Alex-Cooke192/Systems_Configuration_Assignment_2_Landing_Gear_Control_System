@@ -382,7 +382,9 @@ class LandingGearController:
             return
 
         altitude_ft = self.altitude_provider()
-        if altitude_ft is None:
+        print(altitude_ft)
+        if altitude_ft is None or not math.isfinite(float(altitude_ft)):
+            self._auto_deploy_latched = False
             return
 
         normal = self.normal_conditions_provider()
