@@ -84,6 +84,7 @@ It is not flight-certified and must not be used in operational systems.
 
 import time
 from typing import Callable, Sequence
+import math
 
 from gear_configuration import GearConfiguration
 from gear_states import GearState
@@ -102,6 +103,7 @@ class LandingGearController:
         fault_recorder=None,
     ):
         self._config = config
+        self._position_sensors_provider = position_sensors_provider
         # Default boot policy (to satisfy PR003 + enable PR002 deploy):
         # - If no sensors provider is wired at construction time, start in UP_LOCKED.
         # - If sensors are provided, start in RESET and let update() validate via FTHR004.
@@ -150,7 +152,7 @@ class LandingGearController:
         self._sr004_power_loss_latched = False
 
         # Position data
-        self.position_sensors_provider: Callable[[], Sequence[PositionSensorReading]] | None = (
+        self._position_sensors_provider: Callable[[], Sequence[PositionSensorReading]] | None = (
             position_sensors_provider
         )
         self._maintenance_fault_active = False
@@ -209,6 +211,22 @@ class LandingGearController:
     @fault_recorder.setter
     def fault_recorder(self, recorder) -> None:
         self._fault_recorder = recorder
+
+    @property
+    def position_sensors_provider(self):
+        return self._position_sensors_provider
+
+    @position_sensors_provider.setter
+    def position_sensors_provider(self, provider) -> None:
+        self._position_sensors_provider = provider
+        # FTHR004 boot behavior: whenever sensors are (re)wired, require validation from RESET.
+        self._state = GearState.RESET
+        self._reset_validated = False
+        self._state_entered_at = self._clock()
+        # reset conflict tracking
+        self._sensor_conflict_started_at = None
+        self._sensor_conflict_fault_latched = False
+
 
     def log(self, msg: str) -> None:
         print(msg)
@@ -562,7 +580,7 @@ class LandingGearController:
         if not readings:
             return None
 
-        valid = [r for r in readings if r.status == SensorStatus.OK]
+        valid = [r for r in readings if r.status == SensorStatus.OK and math.isfinite(float(r.position_norm))]
         failed_count = len(readings) - len(valid)
 
         # No failures: normal estimate using all readings
@@ -616,7 +634,7 @@ class LandingGearController:
             self._sensor_conflict_started_at = None
             return
 
-        valid = [r for r in readings if r.status == SensorStatus.OK]
+        valid = [r for r in readings if r.status == SensorStatus.OK and math.isfinite(float(r.position_norm))]
         if len(valid) < 2:
             # Not an OK/OK conflict case
             self._sensor_conflict_started_at = None
@@ -681,7 +699,7 @@ class LandingGearController:
         if not readings:
             return None
 
-        valid = [r for r in readings if r.status == SensorStatus.OK]
+        valid = [r for r in readings if r.status == SensorStatus.OK and math.isfinite(float(r.position_norm))]
         if len(valid) == 0:
             return None
 
