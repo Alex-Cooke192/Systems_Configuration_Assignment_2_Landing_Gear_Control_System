@@ -6,3 +6,6 @@ fault_log.txt
 
 # Logs
 logs/
+
+# Reports
+reports/
