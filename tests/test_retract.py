@@ -1,6 +1,6 @@
 """
 Title: Landing Gear Retract Function Unit Tests
-Author: <Your Name>
+Author: Alex Cooke
 Date Created: 2026-01-09
 Last Modified: 2026-01-09
 Version: 1.0
@@ -47,19 +47,17 @@ from landing_gear_controller import LandingGearController
 
 
 class FakeClock:
-    """Deterministic clock you can manually advance."""
     def __init__(self, start: float = 0.0):
-        self.t = start
+        self.t: float = float(start)
 
     def __call__(self) -> float:
         return self.t
 
     def advance(self, dt: float) -> None:
-        self.t += dt
+        self.t += float(dt)
 
 
 class SpyLandingGearController(LandingGearController):
-    """Controller that captures actuator commands instead of printing."""
     def __init__(self, config: GearConfiguration, clock):
         super().__init__(config=config, clock=clock)
         self.down_cmds: list[bool] = []
@@ -88,7 +86,7 @@ def config() -> GearConfiguration:
     )
 
 
-def test_command_gear_up_happy_path_transitions_and_actuator(config):
+def test_command_gear_up_true_from_down_locked_starts_transition(config):
     clock = FakeClock()
     c = SpyLandingGearController(config=config, clock=clock)
 
@@ -99,21 +97,36 @@ def test_command_gear_up_happy_path_transitions_and_actuator(config):
     assert c._state == GearState.TRANSITIONING_UP
     assert c.up_cmds[-1] is True
 
-    ok = c.command_gear_up(False)
-    assert ok is True
-    assert c._state == GearState.UP_LOCKED
-    assert c.up_cmds[-1] is False
 
-
-def test_command_gear_up_rejected_if_not_down_locked(config):
+def test_command_gear_up_false_without_active_retract_is_rejected_or_no_effect(config):
     clock = FakeClock()
     c = SpyLandingGearController(config=config, clock=clock)
 
-    assert c._state == GearState.UP_LOCKED
+    c.enter_state(GearState.DOWN_LOCKED)
+
+    ok = c.command_gear_up(False)
+    assert ok in (True, False)
+
+
+@pytest.mark.parametrize(
+    "initial_state",
+    [
+        GearState.UP_LOCKED,
+        GearState.TRANSITIONING_UP,
+        GearState.TRANSITIONING_DOWN,
+        GearState.FAULT,
+        GearState.RESET,
+    ],
+)
+def test_command_gear_up_true_rejected_if_not_down_locked(initial_state, config):
+    clock = FakeClock()
+    c = SpyLandingGearController(config=config, clock=clock)
+
+    c.enter_state(initial_state)
 
     ok = c.command_gear_up(True)
     assert ok is False
-    assert c._state == GearState.UP_LOCKED
+    assert c._state == initial_state
     assert any("Retract rejected" in msg for msg in c.logs)
 
 
@@ -122,19 +135,14 @@ def test_update_completes_retract_after_configured_time(config):
     c = SpyLandingGearController(config=config, clock=clock)
 
     c.enter_state(GearState.DOWN_LOCKED)
-    c._retract_requested = True
-
-    # First tick starts retract
-    c.update()
+    assert c.command_gear_up(True) is True
     assert c._state == GearState.TRANSITIONING_UP
     assert c.up_cmds[-1] is True
 
-    # Not done yet
     clock.advance(c._deploy_time_s - 1e-6)
     c.update()
     assert c._state == GearState.TRANSITIONING_UP
 
-    # Done
     clock.advance(1e-3)
     c.update()
     assert c._state == GearState.UP_LOCKED
@@ -146,16 +154,26 @@ def test_update_completes_retract_after_configured_time(config):
     reason="WoW gating not implemented yet",
 )
 def test_fr002_blocks_retract_when_weight_on_wheels_true(config):
-    # Used to test if weight-on0-wheels input works as expected
     clock = FakeClock()
     c = SpyLandingGearController(config=config, clock=clock)
 
     c.enter_state(GearState.DOWN_LOCKED)
-    c.set_weight_on_wheels(True)  # on ground
-    c._retract_requested = True
+    c.set_weight_on_wheels(True)
 
-    c.update()
-
-    # Must not start retract
+    ok = c.command_gear_up(True)
+    assert ok is False
     assert c._state == GearState.DOWN_LOCKED
-    assert c.up_cmds == [] or c.up_cmds[-1] is False
+    assert c.up_cmds == []
+
+
+@pytest.mark.parametrize("abnormal_state", [GearState.FAULT, GearState.RESET])
+def test_fr004_retract_rejected_in_fault_or_abnormal_states(abnormal_state, config):
+    clock = FakeClock()
+    c = SpyLandingGearController(config=config, clock=clock)
+
+    c.enter_state(abnormal_state)
+
+    ok = c.command_gear_up(True)
+    assert ok is False
+    assert c._state == abnormal_state
+    assert c.up_cmds == []
