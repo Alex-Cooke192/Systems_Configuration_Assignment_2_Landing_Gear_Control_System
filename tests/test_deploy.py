@@ -44,6 +44,7 @@ import pytest
 from gear_configuration import GearConfiguration
 from gear_states import GearState
 from landing_gear_controller import LandingGearController
+from sims.position_simulator import PositionSensorReading, SensorStatus
 
 
 class FakeClock:
@@ -63,6 +64,14 @@ class SpyLandingGearController(LandingGearController):
         self.up_cmds: list[bool] = []
         self.logs: list[str] = []
         super().__init__(config=config, clock=clock)
+
+        # Provide valid "UP" sensors so RESET resolves on first update
+        if getattr(self, "position_sensors_provider", None) is None:
+            self.position_sensors_provider = lambda: [
+                PositionSensorReading(SensorStatus.OK, 0.0),
+                PositionSensorReading(SensorStatus.OK, 0.0),
+            ]
+        
         self.update()
 
     def log(self, msg: str) -> None:
