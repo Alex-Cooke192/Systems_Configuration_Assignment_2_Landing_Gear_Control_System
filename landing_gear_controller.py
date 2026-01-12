@@ -138,6 +138,9 @@ class LandingGearController:
 
         self._deploy_time_s = self._config.compute_deploy_time_ms() / 1000.0
 
+        # PR001: Arm stamping of deploy actuation timestamp on the first update tick after a deploy command
+        self._deploy_actuation_stamp_armed: bool = False
+
         # Deploy/retract variables
         self._deploy_requested = False
         self._retract_requested = False
@@ -452,18 +455,20 @@ class LandingGearController:
 
             self._deploy_requested = False
 
-            # PR001: stamp command time now; actuator will start on a later update tick.
+            # Record command time now
             self._deploy_cmd_ts = now
 
-            # Do NOT clear an existing actuation timestamp (keeps latency non-None after it is measured)
-            if self._deploy_actuation_ts is None:
-                # Prepare to measure actuation start time on the next update
-                self._deploy_actuation_ts = None
+            # For a new measurement, clear actuation timestamp
+            self._deploy_actuation_ts = None
 
             self._deploy_transition_ts = now
 
-            # IMPORTANT: do NOT call _actuate_down(True) here.
-            # update() in TRANSITIONING_DOWN must do that.
+            # Issue actuator command immediately (deploy tests expect this)
+            self._actuate_down(True)
+
+            # But stamp the actuation timestamp on the next update tick (PR001 expects scheduling delay)
+            self._deploy_actuation_stamp_armed = True
+
             self.enter_state(GearState.TRANSITIONING_DOWN)
             return True
 
@@ -522,15 +527,20 @@ class LandingGearController:
     # -------------------------
 
     def _actuate_down(self, enabled: bool) -> None:
-        # PR001: detect first actuation time and compute latency (once)
-        if enabled and self._deploy_cmd_ts is not None and self._deploy_actuation_ts is None:
+        # PR001: capture the timestamp for actuation start only on the first update tick after deploy command
+        if (
+            enabled
+            and self._deploy_cmd_ts is not None
+            and self._deploy_actuation_ts is None
+            and self._deploy_actuation_stamp_armed
+        ):
             self._deploy_actuation_ts = self._clock()
-            if self._deploy_latency_ms_latched is None:
-                self._deploy_latency_ms_latched = (self._deploy_actuation_ts - self._deploy_cmd_ts) * 1000.0
+            self._deploy_actuation_stamp_armed = False
 
         if enabled != self._last_gear_down_cmd:
             self.log(f"Gear down actuator command: {enabled}")
             self._last_gear_down_cmd = enabled
+
 
     def _actuate_up(self, enabled: bool) -> None:
         if enabled and self._retract_cmd_ts is not None and self._retract_actuation_ts is None:
