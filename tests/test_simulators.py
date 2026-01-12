@@ -1,9 +1,49 @@
-# test_simulators.py
-#
-# Unit tests for simulator-layer data models and utilities.
-# Scope:
-# - sims.position_simulator: SensorStatus, PositionSensorReading
-# - sims.altitude_simulator: AltitudeSimulator
+"""
+Title: Landing Gear Simulation Components Unit Tests
+Author: Alex Cooke
+Date Created: 2026-01-10
+Last Modified: 2026-01-10
+Version: 1.0
+
+Purpose:
+Provides unit-level verification of simulation components used by the
+Landing Gear Control System test environment. These tests validate the
+behavior, data semantics, and robustness of the position sensor data
+structures and the altitude simulator.
+
+Targeted Requirements (Verification Only):
+- SIM-POS-001: Verification of position sensor data representation,
+  immutability, equality semantics, and tolerance of out-of-range values.
+- SIM-ALT-001: Verification of altitude simulator behavior, including
+  bounded motion, velocity clamping, and time-based update semantics.
+- SIM-ALT-002: Verification of injected clock usage and deterministic
+  update behavior.
+
+Scope and Limitations:
+- Tests simulation utilities only; no controller or system logic is verified.
+- Randomness is controlled via seeded RNG for repeatability.
+- These tests do not represent physical accuracy of aircraft dynamics.
+- Intended solely to support deterministic unit testing.
+
+Safety Notice:
+This file is a test artefact intended solely for verification and assessment.
+It must not be used in operational or flight-certified systems.
+
+Dependencies:
+- Python 3.10+
+- pytest
+- sims.position_simulator.py
+- sims.altitude_simulator.py
+
+Related Documents:
+- LGCS Unit Test Plan
+- LGCS Simulation Design Notes
+
+Safety and Certification Disclaimer:
+All artefacts in this repository are produced for academic assessment purposes only.
+They do not represent certified software and must not be used in real-world aviation
+or safety-critical systems.
+"""
 
 import dataclasses
 import math

@@ -1,3 +1,56 @@
+"""
+Title: Landing Gear Fault Tolerance and Recovery Unit Tests
+Author: Alex Cooke
+Date Created: 2026-01-10
+Last Modified: 2026-01-10
+Version: 1.0
+
+Purpose:
+Provides unit-level verification of fault-tolerance, sensor-validation,
+and recovery logic implemented in the LandingGearController. These tests
+validate continued operation under degraded sensor conditions, correct
+fault escalation behavior, fault logging, and safe reset handling.
+
+Targeted Requirements (Verification Only):
+- FTHR001: Verification of continued operation with a single failed
+  position sensor and correct maintenance fault reporting.
+- FTHR002: Verification that persistent sensor conflicts exceeding
+  500 ms result in entry to the FAULT state.
+- FTHR003: Verification that detected faults are recorded once with
+  timestamps and fault codes.
+- FTHR004: Verification of safe RESET behavior, including command
+  inhibition until sensors are validated and correct state resolution
+  after validation.
+
+Scope and Limitations:
+- Tests controller fault-handling logic only.
+- Uses deterministic fake clock and simulated sensor inputs.
+- No real hardware, real-time scheduling, or physical sensors are involved.
+- CLI, UI, and actuator hardware behavior are outside the scope of this file.
+
+Safety Notice:
+This file is a test artefact intended solely for verification and assessment.
+It must not be used in operational or flight-certified systems.
+
+Dependencies:
+- Python 3.10+
+- pytest
+- landing_gear_controller.py
+- gear_configuration.py
+- gear_states.py
+- sims.position_simulator.py
+- fault_recorder.py
+
+Related Documents:
+- LGCS Unit Test Plan
+- LGCS Fault Tolerance Requirements Specification
+
+Safety and Certification Disclaimer:
+All artefacts in this repository are produced for academic assessment purposes only.
+They do not represent certified software and must not be used in real-world aviation
+or safety-critical systems.
+"""
+
 from pathlib import Path
 
 from landing_gear_controller import LandingGearController
