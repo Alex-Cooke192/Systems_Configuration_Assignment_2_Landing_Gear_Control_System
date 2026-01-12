@@ -249,11 +249,8 @@ class LandingGearController:
             determined = self._determine_state_from_sensors()
 
             if determined is None:
-                # PROTOTYPE POLICY: if sensors can't determine state at startup,
-                # assume UP_LOCKED (safe default for flight), keep actuators off.
-                self.enter_state(GearState.UP_LOCKED)
+                self.log("RESET: sensors invalid, remaining in RESET")
                 self._reset_validated = False  # or True if you want to accept commands
-                self.log("RESET: sensors unknown, defaulting to UP_LOCKED")
                 return
 
             self.enter_state(determined)
