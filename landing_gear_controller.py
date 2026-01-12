@@ -417,15 +417,15 @@ class LandingGearController:
         if enabled:
             if self.primary_power_present_provider is not None:
                 if not self.primary_power_present_provider():  # LGCS-SR004
-                    self.log("Retract ignored: primary control power not present")
+                    self.log("Retract rejected: primary control power not present")
                     return False
 
             if self._state in (GearState.FAULT, GearState.ABNORMAL):
-                self.log(f"Retract ignored: state={self._state.name}")
+                self.log(f"Retract rejected: state={self._state.name}")
                 return False
             
             if self._state == GearState.RESET:
-                self.log("Command ignored: system in RESET state")
+                self.log("Retract rejected: system in RESET state")
                 return False
 
             if self._state != GearState.DOWN_LOCKED:
