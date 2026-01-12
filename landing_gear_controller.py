@@ -709,7 +709,7 @@ class LandingGearController:
         if self._sensor_conflict_fault_latched:
             return
 
-        if persisted_s > 0.5:
+        if persisted_s > self._sensor_conflict_persist_s:
             self._sensor_conflict_fault_latched = True
             self.enter_state(GearState.FAULT)
             self._record_fault(fault_code)
