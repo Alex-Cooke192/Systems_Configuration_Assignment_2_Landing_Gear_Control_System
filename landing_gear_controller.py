@@ -408,17 +408,21 @@ class LandingGearController:
     # -------------------------
 
     def _apply_sr001_auto_deploy(self) -> None:
+        # If missing required inputs, skip (mainly for initialisation)
         if self.altitude_provider is None or self.normal_conditions_provider is None:
             return
 
         altitude_ft = self.altitude_provider()
         if altitude_ft is None or not math.isfinite(float(altitude_ft)):
+            # If input is invalid, assume new event (i.e. can again decrease below altitude threshold), 
+            # so clear safety latch
             self._auto_deploy_latched = False
             return
 
         normal = self.normal_conditions_provider()
 
         if not normal:
+            # Input invalid, assume new event
             self._auto_deploy_latched = False
             return
 
@@ -427,6 +431,7 @@ class LandingGearController:
             return
 
         if self._state in (GearState.DOWN_LOCKED, GearState.TRANSITIONING_DOWN):
+            # If already deploying, skip (prevents continuous spamming)
             return
 
         if self._auto_deploy_latched:
