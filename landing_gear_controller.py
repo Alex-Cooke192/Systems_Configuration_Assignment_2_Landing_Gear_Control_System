@@ -640,34 +640,47 @@ class LandingGearController:
         if not readings:
             return None
 
-        valid = [r for r in readings if r.status == SensorStatus.OK and math.isfinite(float(r.position_norm))]
+        now = self._clock()
+
+        valid = [
+            r for r in readings
+            if r.status == SensorStatus.OK and math.isfinite(float(r.position_norm))
+        ]
         failed_count = len(readings) - len(valid)
 
-        # No failures: normal estimate using all readings
+        # No failures: normal estimate using all readings (OK or non-finite OK still excluded above)
         if failed_count == 0:
-            return sum(r.position_norm for r in readings) / len(readings)
+            # Keep original behaviour: average all readings (including any OK-but-nonfinite would have been filtered)
+            return sum(float(r.position_norm) for r in readings) / float(len(readings))
 
-        # One or more failures => maintenance fault should include FTHR001 code (per tests)
-        fthr001_code = "FTHR001_SINGLE_SENSOR_FAILURE"
+        # One or more failures => raise maintenance fault(s)
         self._maintenance_fault_active = True
-        self._maintenance_fault_codes.add(fthr001_code)
-        self._record_fault(fthr001_code)
-        self._mark_fault_classified(fault_code=fthr001_code, occurrence_ts=self._clock())
 
-        # Optional additional code for multiple failures
+        # --- FTHR001: single sensor failure fault (occurs immediately when detected) ---
+        fthr001_code = "FTHR001_SINGLE_SENSOR_FAILURE"
+        self._maintenance_fault_codes.add(fthr001_code)
+
+        # Record the fault (idempotency should be handled inside _record_fault if needed)
+        self._record_fault(fthr001_code)
+
+        # PR004 classification: occurs now (fault definition is immediate detection)
+        self._pr004_classify_fault(fault_code=fthr001_code, occurrence_ts=now)
+
+        # --- Optional: multiple sensor failures (separate code) ---
         if failed_count > 1:
             multi_code = "MULTIPLE_SENSOR_FAILURE"
             self._maintenance_fault_codes.add(multi_code)
             self._record_fault(multi_code)
-            self._mark_fault_classified(fault_code=multi_code, occurrence_ts=self._clock())
+            self._pr004_classify_fault(fault_code=multi_code, occurrence_ts=now)
 
         # Estimation policy
         if len(valid) >= 2:
-            return sum(r.position_norm for r in valid) / len(valid)
+            return sum(float(r.position_norm) for r in valid) / float(len(valid))
         if len(valid) == 1:
-            return valid[0].position_norm  # tests allow None or this value
+            return float(valid[0].position_norm)
 
         return None
+
 
     def _record_fault(self, fault_code: str) -> None:
         if self._fault_recorder is None:
