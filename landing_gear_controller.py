@@ -469,11 +469,13 @@ class LandingGearController:
 
     def _apply_sr004_power_loss_default_down(self) -> None:
         if self.primary_power_present_provider is None:
+            # Don't have inputs so skip (initialisation)
             return
 
         power_present = bool(self.primary_power_present_provider())
 
         if power_present:
+            # We have power! Clear latch and end function
             self._sr004_power_loss_latched = False
             return
 
@@ -497,6 +499,7 @@ class LandingGearController:
         now = self._clock()
 
         if enabled:
+            # If in FAULT, ABNORMAL, RESET or NOT UP_LOCKED
             if self._state in (GearState.FAULT, GearState.ABNORMAL):
                 self.log(f"Deploy rejected: state={self._state.name}")
                 return False
