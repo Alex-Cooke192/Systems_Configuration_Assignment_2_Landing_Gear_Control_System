@@ -611,9 +611,11 @@ class LandingGearController:
 
     def _actuate_up(self, enabled: bool) -> None:
         if enabled and self._retract_cmd_ts is not None and self._retract_actuation_ts is None:
+            # We have the required inputs, timestamp command
             self._retract_actuation_ts = self._clock()
 
         if enabled != self._last_gear_up_cmd:
+            # We have a change of actuation (either start or stop)
             self.log(f"Gear up actuator command: {enabled}")
             self._last_gear_up_cmd = enabled
 
