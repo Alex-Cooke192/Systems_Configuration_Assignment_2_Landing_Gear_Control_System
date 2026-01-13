@@ -545,18 +545,22 @@ class LandingGearController:
         if enabled:
             if self.primary_power_present_provider is not None:
                 if not bool(self.primary_power_present_provider()):  # SR004
+                    # Actuator Physically cannot retract
                     self.log("Retract rejected: primary control power not present")
                     return False
 
             if self._state in (GearState.FAULT, GearState.ABNORMAL):
+                # System not in safe state
                 self.log(f"Retract rejected: state={self._state.name}")
                 return False
 
             if self._state == GearState.RESET:
+                # Don't know the state of the sensor, so cannot safely issue commands
                 self.log("Retract rejected: system in RESET state")
                 return False
 
             if self._state != GearState.DOWN_LOCKED:
+                # Cannot start command if not at a safe starting point
                 self.log(f"Retract rejected: state={self._state.name}")
                 return False
 
@@ -625,10 +629,12 @@ class LandingGearController:
 
     def _apply_fthr001_single_sensor_failure_handling(self) -> float | None:
         if self.position_sensors_provider is None:
+            # Don't have the required inputs, skip (initialisation)
             return None
 
         readings = self.position_sensors_provider()
         if not readings:
+            # Reject invalid sensor readings
             return None
 
         valid = [r for r in readings if r.status == SensorStatus.OK and math.isfinite(float(r.position_norm))]
