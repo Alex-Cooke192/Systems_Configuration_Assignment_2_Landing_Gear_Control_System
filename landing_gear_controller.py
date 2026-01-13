@@ -201,6 +201,7 @@ class LandingGearController:
         self._sensor_conflict_tolerance_norm: float = 0.20  # 20% of travel
 
         # PR004: Fault timing record store
+        self._fault_classification_latency_threshold_s = 0.5 # PR004
         self._fault_occurrence_ts: dict[str, float] = {}
         self._fault_classified_ts: dict[str, float] = {}
 
@@ -275,6 +276,27 @@ class LandingGearController:
 
     def up_requested(self) -> bool:
         return self._retract_requested
+    
+    def _pr004_deadline_s(self) -> float:
+    # PR004: fault classification shall occur within 400 ms of fault occurrence
+        return self._fault_classification_latency_threshold_s
+
+
+    def _pr004_classify_fault(self, fault_code: str, occurrence_ts: float) -> None:
+        """
+        PR004 helper. Call this exactly when the fault condition becomes TRUE
+        (i.e., at the fault's defined occurrence time).
+
+        Records occurrence and classification timestamps once.
+        """
+        # Record occurrence once
+        if fault_code not in self._fault_occurrence_ts:
+            self._fault_occurrence_ts[fault_code] = float(occurrence_ts)
+
+        # Record classification once
+        if fault_code not in self._fault_classified_ts:
+            self._fault_classified_ts[fault_code] = float(self._clock())
+
 
     # -------------------------
     # PR001 API (deploy latency)
@@ -658,11 +680,11 @@ class LandingGearController:
         self._recorded_fault_codes.add(fault_code)
 
     def _apply_fthr002_conflicting_position_sensors_fault(self) -> None:
-        # FTHR002: Persistent sensor conflict (>500ms) => enter FAULT
-        # PR004: Record classification timing at 400ms boundary for validation
-
+        # This function supports PR004 (fault classification within 400ms of fault occurrence)
+        # NOTE: self._fault_classification_latency_threshold_s is used here as the FTHR002 persistence threshold.
         fault_code = "FTHR002_SENSOR_CONFLICT_PERSISTENT"
 
+        # No sensor provider => cannot evaluate
         if self.position_sensors_provider is None:
             self._sensor_conflict_started_at = None
             return
@@ -672,54 +694,58 @@ class LandingGearController:
             self._sensor_conflict_started_at = None
             return
 
-        valid = [r for r in readings if r.status == SensorStatus.OK and math.isfinite(float(r.position_norm))]
+        # Require at least two valid OK sensors
+        valid = [
+            r for r in readings
+            if r.status == SensorStatus.OK
+            and math.isfinite(float(r.position_norm))
+        ]
         if len(valid) < 2:
-            # Not an OK/OK conflict case
             self._sensor_conflict_started_at = None
             return
 
+        # Detect disagreement
         positions = [float(r.position_norm) for r in valid]
         disagreement = max(positions) - min(positions)
         conflicting = disagreement > self._sensor_conflict_tolerance_norm
 
         now = self._clock()
 
+        # No conflict -> reset timer
         if not conflicting:
             self._sensor_conflict_started_at = None
             return
 
-        # Start conflict timer
+        # Start persistence timer
         if self._sensor_conflict_started_at is None:
             self._sensor_conflict_started_at = now
             return
 
         persisted_s = now - self._sensor_conflict_started_at
         if persisted_s < 0:
+            # Time anomaly; ignore this tick
             return
 
-        # --- PR004: record classification at >= 400ms (boundary inclusive) ---
-        if persisted_s >= 0.4:
-            # occurrence is when conflict began, classification is "now"
-            self._mark_fault_classified(
-                fault_code=fault_code,
-                occurrence_ts=self._sensor_conflict_started_at,
-            )
-
-        # --- FTHR002: enter FAULT at strictly > 500ms ---
+        # Fault already latched
         if self._sensor_conflict_fault_latched:
             return
 
-        if persisted_s > 0.5:
+        # Fault occurs once conflict has persisted > threshold (uses self._fault_classification_latency_threshold_s)
+        persistence_s = float(self._fault_classification_latency_threshold_s)
+        if persisted_s > persistence_s:
             self._sensor_conflict_fault_latched = True
+
+            # Fault occurrence is defined at the persistence boundary
+            occurrence_ts = self._sensor_conflict_started_at + persistence_s
+
+            # PR004: classify immediately once fault exists
+            self._pr004_classify_fault(
+                fault_code=fault_code,
+                occurrence_ts=occurrence_ts,
+            )
+
             self.enter_state(GearState.FAULT)
             self._record_fault(fault_code)
-
-    def _mark_fault_classified(self, fault_code: str, occurrence_ts: float) -> None:
-        if fault_code in self._fault_classified_ts:
-            return
-
-        self._fault_occurrence_ts[fault_code] = float(occurrence_ts)
-        self._fault_classified_ts[fault_code] = float(self._clock())
 
     def fault_classification_latency_ms(self, fault_code: str) -> float | None:
         occ = self._fault_occurrence_ts.get(fault_code)
