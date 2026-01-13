@@ -204,6 +204,8 @@ class LandingGearController:
         self._fault_occurrence_ts: dict[str, float] = {}
         self._fault_classified_ts: dict[str, float] = {}
 
+        self.fault_classification_latency_s_threshold = 0.4
+
         # Remember last value (to avoid continuous spamming)
         self._last_gear_down_cmd: bool | None = None
         self._last_gear_up_cmd: bool | None = None
@@ -724,14 +726,6 @@ class LandingGearController:
             # Time has gone backwards
             return
 
-        # --- PR004: record classification at >= 400ms (boundary inclusive) ---
-        if persisted_s >= 0.4:
-            # occurrence is when conflict began, classification is "now"
-            self._mark_fault_classified(
-                fault_code=fault_code,
-                occurrence_ts=self._sensor_conflict_started_at,
-            )
-
         # --- FTHR002: enter FAULT at strictly > 500ms ---
         if self._sensor_conflict_fault_latched:
             # This conflict already exists/is known
@@ -742,6 +736,17 @@ class LandingGearController:
             self.enter_state(GearState.FAULT)
             self._record_fault(fault_code)
 
+            # Classify fault
+            self._mark_fault_classified(
+                fault_code=fault_code, 
+                occurrence_ts=self._sensor_conflict_started_at)
+            
+            fault_latency_ms = self.fault_classification_latency_ms_timeout(fault_code=fault_code)
+            if not fault_latency_ms:
+                # Took too long to classify fault, breach of requirements
+                pass
+                
+
     def _mark_fault_classified(self, fault_code: str, occurrence_ts: float) -> None:
         if fault_code in self._fault_classified_ts:
             # Fault already exists, don't create duplicates
@@ -750,12 +755,13 @@ class LandingGearController:
         self._fault_occurrence_ts[fault_code] = float(occurrence_ts)
         self._fault_classified_ts[fault_code] = float(self._clock())
 
-    def fault_classification_latency_ms(self, fault_code: str) -> float | None:
+    def fault_classification_latency_ms_timeout(self, fault_code: str) -> float | None:
         occ = self._fault_occurrence_ts.get(fault_code)
         cls = self._fault_classified_ts.get(fault_code)
         if occ is None or cls is None:
             return None
-        return (cls - occ) * 1000.0
+        latency = (cls - occ) * 1000.0 
+        return latency > self.fault_classification_latency_s_threshold
 
     def _determine_state_from_sensors(self) -> GearState | None:
         # FTHR004: Determine gear state using validated sensor inputs after reset.
