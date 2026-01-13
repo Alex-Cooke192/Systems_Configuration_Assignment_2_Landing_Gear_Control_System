@@ -637,6 +637,7 @@ class LandingGearController:
             # Reject invalid sensor readings
             return None
 
+        # Count the number of failed sensor readings
         valid = [r for r in readings if r.status == SensorStatus.OK and math.isfinite(float(r.position_norm))]
         failed_count = len(readings) - len(valid)
 
@@ -660,7 +661,7 @@ class LandingGearController:
 
         # Estimation policy
         if len(valid) >= 2:
-            return sum(r.position_norm for r in valid) / len(valid)
+            return sum(r.position_norm for r in valid) / len(valid) # Average of valid values
         if len(valid) == 1:
             return valid[0].position_norm  # tests allow None or this value
 
