@@ -162,13 +162,13 @@ class LandingGearController:
         self._weight_on_wheels: bool = False
 
         # Timing instrumentation
-        self._deploy_cmd_ts: float | None = None
-        self._deploy_transition_ts: float | None = None
-        self._deploy_actuation_ts: float | None = None
+        self._deploy_cmd_ts: float | None = None # Time at which command is accepted
+        self._deploy_transition_ts: float | None = None # Time at which actuator is energised
+        self._deploy_actuation_ts: float | None = None # Time at which mechanical moton starts 
 
-        self._retract_cmd_ts: float | None = None
-        self._retract_transition_ts: float | None = None
-        self._retract_actuation_ts: float | None = None
+        self._retract_cmd_ts: float | None = None # Time at which command is accepted
+        self._retract_transition_ts: float | None = None # TIme at which actuator is energised
+        self._retract_actuation_ts: float | None = None # Time at which mechanical motion starts
 
         self._deploy_time_s = self._config.compute_deploy_time_ms() / 1000.0
 
