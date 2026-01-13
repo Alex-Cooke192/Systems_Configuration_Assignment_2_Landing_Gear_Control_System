@@ -686,6 +686,8 @@ class LandingGearController:
         fault_code = "FTHR002_SENSOR_CONFLICT_PERSISTENT"
 
         if self.position_sensors_provider is None:
+            # No provider, so cannot determine if sensors are connected to controller, 
+            # Hence, skip
             self._sensor_conflict_started_at = None
             return
 
@@ -694,15 +696,17 @@ class LandingGearController:
             self._sensor_conflict_started_at = None
             return
 
+        # Count number of valid readings
         valid = [r for r in readings if r.status == SensorStatus.OK and math.isfinite(float(r.position_norm))]
         if len(valid) < 2:
             # Not an OK/OK conflict case
             self._sensor_conflict_started_at = None
             return
 
+        # Determine if conflict exists
         positions = [float(r.position_norm) for r in valid]
         disagreement = max(positions) - min(positions)
-        conflicting = disagreement > self._sensor_conflict_tolerance_norm
+        conflicting = disagreement > self._sensor_conflict_tolerance_norm # Difference between values grater than tolerance -> conflict
 
         now = self._clock()
 
@@ -717,6 +721,7 @@ class LandingGearController:
 
         persisted_s = now - self._sensor_conflict_started_at
         if persisted_s < 0:
+            # Time has gone backwards
             return
 
         # --- PR004: record classification at >= 400ms (boundary inclusive) ---
@@ -729,6 +734,7 @@ class LandingGearController:
 
         # --- FTHR002: enter FAULT at strictly > 500ms ---
         if self._sensor_conflict_fault_latched:
+            # This conflict already exists/is known
             return
 
         if persisted_s > self._sensor_conflict_persist_s:
@@ -738,6 +744,7 @@ class LandingGearController:
 
     def _mark_fault_classified(self, fault_code: str, occurrence_ts: float) -> None:
         if fault_code in self._fault_classified_ts:
+            # Fault already exists, don't create duplicates
             return
 
         self._fault_occurrence_ts[fault_code] = float(occurrence_ts)
