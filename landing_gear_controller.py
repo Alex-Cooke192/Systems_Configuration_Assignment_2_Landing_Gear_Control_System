@@ -445,10 +445,12 @@ class LandingGearController:
         WARNING_TEXT = "WARNING: ALTITUDE LOW - LANDING GEAR NOT DEPLOYED"
 
         if self.altitude_provider is None or self.normal_conditions_provider is None:
+            # Don't have required inputs so skip (initialisation)
             return
 
         altitude_ft = self.altitude_provider()
         if altitude_ft is None:
+            # Reject invalid altitude
             return
 
         normal = self.normal_conditions_provider()
