@@ -669,9 +669,11 @@ class LandingGearController:
 
     def _record_fault(self, fault_code: str) -> None:
         if self._fault_recorder is None:
+            # No recorder, so do nothing (initialisation)
             return
 
         if fault_code in self._recorded_fault_codes:
+            # If fault code already exists, don't add a duplicate (timestamp included in fault code)
             return
 
         self._fault_recorder.record(fault_code)
