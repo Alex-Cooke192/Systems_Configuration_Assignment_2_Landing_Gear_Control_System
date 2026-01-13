@@ -210,7 +210,7 @@ class LandingGearController:
 
         # --- PR001 instrumentation (deploy command-to-actuation latency) ---
         # Latch first observed deploy actuation latency; do not clear on repeated deploys (per tests).
-        self._deploy_latency_ms_latched: float | None = None
+        self._deploy_latency_ms_latched: float | None = None # This is latched data, not a latched flag 
 
         # --- PR002/PR003 instrumentation (update cadence monitoring) ---
         self._last_update_ts: float | None = None
