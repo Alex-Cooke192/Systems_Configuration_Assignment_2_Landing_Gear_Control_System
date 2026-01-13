@@ -244,32 +244,17 @@ class TestPR004:
         latency_ms = controller.fault_classification_latency_ms("FTHR002_SENSOR_CONFLICT_PERSISTENT")
         assert latency_ms is None
 
-    def test_pr004_conflict_clears_before_400ms_not_classified(self):
-        controller, clock = make_controller_with_fake_clock()
+    def test_pr004_persistent_conflict_fault_classified_within_400ms_of_persistent_occurrence(self):
+        """
+        New understanding:
+        - The fault code FTHR002_SENSOR_CONFLICT_PERSISTENT only "occurs" once the
+            sensor conflict has persisted for > 500 ms.
+        - PR004 then requires the system to classify that fault within 400 ms of that
+            occurrence (i.e., within 400 ms of the 500 ms persistence boundary).
 
-        conflict = [
-            PositionSensorReading(SensorStatus.OK, 0.0),
-            PositionSensorReading(SensorStatus.OK, 1.0),
-        ]
-        ok = [
-            PositionSensorReading(SensorStatus.OK, 0.0),
-            PositionSensorReading(SensorStatus.OK, 0.0),
-        ]
-
-        controller.position_sensors_provider = lambda: conflict
-        controller.update()
-
-        clock.advance(0.30)
-        controller.position_sensors_provider = lambda: ok
-        controller.update()
-
-        clock.advance(0.60)
-        controller.update()
-
-        latency_ms = controller.fault_classification_latency_ms("FTHR002_SENSOR_CONFLICT_PERSISTENT")
-        assert latency_ms is None
-
-    def test_pr004_conflict_persists_classified_within_400ms_boundary(self):
+        This test forces persistence beyond 500 ms and checks classification latency
+        (classification_ts - occurrence_ts) <= 400 ms.
+        """
         controller, clock = make_controller_with_fake_clock()
 
         conflict = [
@@ -278,15 +263,25 @@ class TestPR004:
         ]
         controller.position_sensors_provider = lambda: conflict
 
+        # Start conflict timer at t=0
         controller.update()
-        clock.advance(0.40)
+
+        # Advance just beyond the persistence threshold and tick again to latch the fault.
+        # With the new implementation, classification happens immediately when the fault latches.
+        clock.advance(0.501)
         controller.update()
 
         latency_ms = controller.fault_classification_latency_ms("FTHR002_SENSOR_CONFLICT_PERSISTENT")
         assert latency_ms is not None
         assert latency_ms <= 400.0
 
-    def test_pr004_conflict_persists_invalid_just_over_400ms(self):
+
+    def test_pr004_before_persistence_threshold_fault_not_present_so_no_classification(self):
+        """
+        New understanding:
+        - Before >500 ms persistence, the *persistent* fault does not exist.
+        - Therefore there must be no classification record for the persistent fault code.
+        """
         controller, clock = make_controller_with_fake_clock()
 
         conflict = [
@@ -296,14 +291,19 @@ class TestPR004:
         controller.position_sensors_provider = lambda: conflict
 
         controller.update()
-        clock.advance(0.401)
+        clock.advance(0.49)
         controller.update()
 
         latency_ms = controller.fault_classification_latency_ms("FTHR002_SENSOR_CONFLICT_PERSISTENT")
-        assert latency_ms is not None
-        assert latency_ms > 400.0
+        assert latency_ms is None
+
 
     def test_pr004_failed_sensor_does_not_count_as_ok_ok_conflict(self):
+        """
+        Unchanged intent:
+        - A FAILED + OK pair is not an OK/OK disagreement case,
+            so the persistent fault should never be recorded/classified.
+        """
         controller, clock = make_controller_with_fake_clock()
 
         readings = [
@@ -359,3 +359,4 @@ class TestPositionNorm:
             PositionSensorReading(SensorStatus.OK, 1.0),
         ]
         controller.update()
+
