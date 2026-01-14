@@ -61,12 +61,92 @@ echo "Unit tests PASSED."
 # Run scripted CLI scenario
 # --------------------------------------------
 echo ""
-echo "[3/5] Running scripted CLI integration scenario..."
+echo "[4/6] Running extended scripted CLI integration scenario in container..."
 
-CLI_COMMANDS=$'state\nsens mix ok 0 ok 0 fail 0\nalt 1500\nstep 1\nalt 999\nstep 1\nstate\nu\nwow 1\nu\nwow 0\nu\nstep 5\nstate\nsens mix ok 0 ok 1\nstep 1\nstep 5\nstate\nq\n'
+CLI_COMMANDS=$'
+# ----------------------------
+# Scenario A: Baseline status
+# ----------------------------
+state
 
-# Pipe commands into CLI and save transcript (while also printing to terminal)
-printf "%s" "${CLI_COMMANDS}" | "${PY}" main.py | tee logs/cli_demo_output.txt
+# ----------------------------
+# Scenario B: Nominal deploy (safe altitude / WOW handling)
+# ----------------------------
+alt 1500
+wow 0
+u
+step 3
+state
+
+# ----------------------------
+# Scenario C: Attempt retract on ground (safety inhibit example)
+# (If your logic prevents gear-up with WOW=1, this should be rejected)
+# ----------------------------
+wow 1
+u
+step 1
+state
+
+# ----------------------------
+# Scenario D: Nominal retract (airborne)
+# ----------------------------
+wow 0
+u
+step 5
+state
+
+# ----------------------------
+# Scenario E: Sensor injection - mixed readings + single failure
+# (Exercises FTHR001 style behaviour if your CLI supports it)
+# ----------------------------
+sens mix ok 0 ok 0 fail 0
+state
+step 1
+state
+
+# ----------------------------
+# Scenario F: Persistent conflict (two OK disagreeing sensors)
+# - hold for long enough to exceed persistence threshold
+# - should trigger PR004 classification timing if implemented
+# ----------------------------
+sens mix ok 0 ok 1
+state
+step 1
+step 1
+step 1
+step 1
+step 1
+state
+
+# ----------------------------
+# Scenario G: Return to normal sensors / clear condition
+# ----------------------------
+sens mix ok 0 ok 0
+step 2
+state
+
+# ----------------------------
+# Scenario H: Boundary altitude behaviour
+# (hover around threshold to show no chatter if you have hysteresis)
+# ----------------------------
+alt 1001
+step 1
+alt 999
+step 1
+alt 1001
+step 1
+state
+
+# ----------------------------
+# Scenario I: Quit
+# ----------------------------
+q
+'
+printf "%s" "${CLI_COMMANDS}" | docker run --rm -i \
+  -v "${ROOT_DIR}/logs:/app/logs" \
+  -v "${ROOT_DIR}/reports:/app/reports" \
+  "${IMAGE_NAME}" \
+  python main.py | tee logs/cli_demo_output.txt
 
 # --------------------------------------------
 # Show generated artefacts
