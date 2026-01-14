@@ -3,8 +3,3 @@ tests/__pycache__/
 __pycache__/
 .pytest_cache/
 fault_log.txt
-
-# Logs
-logs/
-
-# Reports
