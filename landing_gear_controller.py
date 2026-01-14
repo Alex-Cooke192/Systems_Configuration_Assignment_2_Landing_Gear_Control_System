@@ -162,13 +162,13 @@ class LandingGearController:
         self._weight_on_wheels: bool = False
 
         # Timing instrumentation
-        self._deploy_cmd_ts: float | None = None
-        self._deploy_transition_ts: float | None = None
-        self._deploy_actuation_ts: float | None = None
+        self._deploy_cmd_ts: float | None = None # Time at which command is accepted
+        self._deploy_transition_ts: float | None = None # Time at which actuator is energised
+        self._deploy_actuation_ts: float | None = None # Time at which mechanical moton starts 
 
-        self._retract_cmd_ts: float | None = None
-        self._retract_transition_ts: float | None = None
-        self._retract_actuation_ts: float | None = None
+        self._retract_cmd_ts: float | None = None # Time at which command is accepted
+        self._retract_transition_ts: float | None = None # TIme at which actuator is energised
+        self._retract_actuation_ts: float | None = None # Time at which mechanical motion starts
 
         self._deploy_time_s = self._config.compute_deploy_time_ms() / 1000.0
 
@@ -205,13 +205,15 @@ class LandingGearController:
         self._fault_occurrence_ts: dict[str, float] = {}
         self._fault_classified_ts: dict[str, float] = {}
 
+        self.fault_classification_latency_s_threshold = 0.4
+
         # Remember last value (to avoid continuous spamming)
         self._last_gear_down_cmd: bool | None = None
         self._last_gear_up_cmd: bool | None = None
 
         # --- PR001 instrumentation (deploy command-to-actuation latency) ---
         # Latch first observed deploy actuation latency; do not clear on repeated deploys (per tests).
-        self._deploy_latency_ms_latched: float | None = None
+        self._deploy_latency_ms_latched: float | None = None # This is latched data, not a latched flag 
 
         # --- PR002/PR003 instrumentation (update cadence monitoring) ---
         self._last_update_ts: float | None = None
@@ -369,6 +371,7 @@ class LandingGearController:
         self._deliver_low_altitude_warning()
         self._apply_sr001_auto_deploy()
 
+        # Check if any of those tests caused fault/abnormal, stop early
         if self._state in (GearState.FAULT, GearState.ABNORMAL):
             self._actuate_down(False)
             self._actuate_up(False)
@@ -397,7 +400,7 @@ class LandingGearController:
 
             elapsed_s = now - self._state_entered_at
             if elapsed_s < 0:
-                # If time goes backwards, do not complete the transition this tick.
+                # If time goes backwards, do not complete the transition this tick (condition for robustness)
                 return
 
             if elapsed_s >= self._deploy_time_s:
@@ -417,7 +420,7 @@ class LandingGearController:
             self._actuate_up(True)
 
             elapsed_s = now - self._state_entered_at
-            if elapsed_s < 0:
+            if elapsed_s < 0: # If time goes backwards (this condition is purely for robustness)
                 return
 
             if elapsed_s >= self._deploy_time_s:
@@ -429,17 +432,21 @@ class LandingGearController:
     # -------------------------
 
     def _apply_sr001_auto_deploy(self) -> None:
+        # If missing required inputs, skip (mainly for initialisation)
         if self.altitude_provider is None or self.normal_conditions_provider is None:
             return
 
         altitude_ft = self.altitude_provider()
         if altitude_ft is None or not math.isfinite(float(altitude_ft)):
+            # If input is invalid, assume new event (i.e. can again decrease below altitude threshold), 
+            # so clear safety latch
             self._auto_deploy_latched = False
             return
 
         normal = self.normal_conditions_provider()
 
         if not normal:
+            # Input invalid, assume new event
             self._auto_deploy_latched = False
             return
 
@@ -448,6 +455,7 @@ class LandingGearController:
             return
 
         if self._state in (GearState.DOWN_LOCKED, GearState.TRANSITIONING_DOWN):
+            # If already deploying, skip (prevents continuous spamming)
             return
 
         if self._auto_deploy_latched:
@@ -461,10 +469,12 @@ class LandingGearController:
         WARNING_TEXT = "WARNING: ALTITUDE LOW - LANDING GEAR NOT DEPLOYED"
 
         if self.altitude_provider is None or self.normal_conditions_provider is None:
+            # Don't have required inputs so skip (initialisation)
             return
 
         altitude_ft = self.altitude_provider()
         if altitude_ft is None:
+            # Reject invalid altitude
             return
 
         normal = self.normal_conditions_provider()
@@ -483,11 +493,13 @@ class LandingGearController:
 
     def _apply_sr004_power_loss_default_down(self) -> None:
         if self.primary_power_present_provider is None:
+            # Don't have inputs so skip (initialisation)
             return
 
         power_present = bool(self.primary_power_present_provider())
 
         if power_present:
+            # We have power! Clear latch and end function
             self._sr004_power_loss_latched = False
             return
 
@@ -511,6 +523,7 @@ class LandingGearController:
         now = self._clock()
 
         if enabled:
+            # If in FAULT, ABNORMAL, RESET or NOT UP_LOCKED
             if self._state in (GearState.FAULT, GearState.ABNORMAL):
                 self.log(f"Deploy rejected: state={self._state.name}")
                 return False
@@ -556,18 +569,22 @@ class LandingGearController:
         if enabled:
             if self.primary_power_present_provider is not None:
                 if not bool(self.primary_power_present_provider()):  # SR004
+                    # Actuator Physically cannot retract
                     self.log("Retract rejected: primary control power not present")
                     return False
 
             if self._state in (GearState.FAULT, GearState.ABNORMAL):
+                # System not in safe state
                 self.log(f"Retract rejected: state={self._state.name}")
                 return False
 
             if self._state == GearState.RESET:
+                # Don't know the state of the sensor, so cannot safely issue commands
                 self.log("Retract rejected: system in RESET state")
                 return False
 
             if self._state != GearState.DOWN_LOCKED:
+                # Cannot start command if not at a safe starting point
                 self.log(f"Retract rejected: state={self._state.name}")
                 return False
 
@@ -622,9 +639,11 @@ class LandingGearController:
 
     def _actuate_up(self, enabled: bool) -> None:
         if enabled and self._retract_cmd_ts is not None and self._retract_actuation_ts is None:
+            # We have the required inputs, timestamp command
             self._retract_actuation_ts = self._clock()
 
         if enabled != self._last_gear_up_cmd:
+            # We have a change of actuation (either start or stop)
             self.log(f"Gear up actuator command: {enabled}")
             self._last_gear_up_cmd = enabled
 
@@ -634,10 +653,12 @@ class LandingGearController:
 
     def _apply_fthr001_single_sensor_failure_handling(self) -> float | None:
         if self.position_sensors_provider is None:
+            # Don't have the required inputs, skip (initialisation)
             return None
 
         readings = self.position_sensors_provider()
         if not readings:
+            # Reject invalid sensor readings
             return None
 
         now = self._clock()
@@ -684,9 +705,11 @@ class LandingGearController:
 
     def _record_fault(self, fault_code: str) -> None:
         if self._fault_recorder is None:
+            # No recorder, so do nothing (initialisation)
             return
 
         if fault_code in self._recorded_fault_codes:
+            # If fault code already exists, don't add a duplicate (timestamp included in fault code)
             return
 
         self._fault_recorder.record(fault_code)
@@ -699,6 +722,8 @@ class LandingGearController:
 
         # No sensor provider => cannot evaluate
         if self.position_sensors_provider is None:
+            # No provider, so cannot determine if sensors are connected to controller, 
+            # Hence, skip
             self._sensor_conflict_started_at = None
             return
 
@@ -720,7 +745,7 @@ class LandingGearController:
         # Detect disagreement
         positions = [float(r.position_norm) for r in valid]
         disagreement = max(positions) - min(positions)
-        conflicting = disagreement > self._sensor_conflict_tolerance_norm
+        conflicting = disagreement > self._sensor_conflict_tolerance_norm # Difference between values grater than tolerance -> conflict
 
         now = self._clock()
 
@@ -741,6 +766,7 @@ class LandingGearController:
 
         # Fault already latched
         if self._sensor_conflict_fault_latched:
+            # This conflict already exists/is known
             return
 
         # Fault occurs once conflict has persisted > threshold (uses self._fault_classification_latency_threshold_s)
@@ -760,12 +786,13 @@ class LandingGearController:
             self.enter_state(GearState.FAULT)
             self._record_fault(fault_code)
 
-    def fault_classification_latency_ms(self, fault_code: str) -> float | None:
+    def fault_classification_latency_ms_timeout(self, fault_code: str) -> float | None:
         occ = self._fault_occurrence_ts.get(fault_code)
         cls = self._fault_classified_ts.get(fault_code)
         if occ is None or cls is None:
             return None
-        return (cls - occ) * 1000.0
+        latency = (cls - occ) * 1000.0 
+        return latency > self.fault_classification_latency_s_threshold
 
     def _determine_state_from_sensors(self) -> GearState | None:
         # FTHR004: Determine gear state using validated sensor inputs after reset.
