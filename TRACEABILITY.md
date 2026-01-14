@@ -277,7 +277,7 @@ Following entry to the RESET state, the landing gear system shall determine gear
 
 ## Integration and QA Tooling Evidence
 
-- `integration_demo.ps1` – End-to-end integration demonstration
+- `integration_demo.ps1` or 'integration_demo.sh' – End-to-end integration demonstration
 - `pytest` – Automated unit and integration testing
 - CLI command audit log – Operator action traceability
 - Fault recorder log – Persistent fault evidence
