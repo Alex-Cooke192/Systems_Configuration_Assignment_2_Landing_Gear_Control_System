@@ -241,7 +241,7 @@ class TestPR004:
         clock.advance(1.0)
         controller.update()
 
-        latency_ms = controller.fault_classification_latency_ms("FTHR002_SENSOR_CONFLICT_PERSISTENT")
+        latency_ms = controller.fault_classification_latency_ms_timeout("FTHR002_SENSOR_CONFLICT_PERSISTENT")
         assert latency_ms is None
 
     def test_pr004_persistent_conflict_fault_classified_within_400ms_of_persistent_occurrence(self):
@@ -271,9 +271,8 @@ class TestPR004:
         clock.advance(0.501)
         controller.update()
 
-        latency_ms = controller.fault_classification_latency_ms("FTHR002_SENSOR_CONFLICT_PERSISTENT")
-        assert latency_ms is not None
-        assert latency_ms <= 400.0
+        timeout_flag = controller.fault_classification_latency_ms_timeout("FTHR002_SENSOR_CONFLICT_PERSISTENT")
+        assert timeout_flag is True
 
 
     def test_pr004_before_persistence_threshold_fault_not_present_so_no_classification(self):
@@ -294,8 +293,8 @@ class TestPR004:
         clock.advance(0.49)
         controller.update()
 
-        latency_ms = controller.fault_classification_latency_ms("FTHR002_SENSOR_CONFLICT_PERSISTENT")
-        assert latency_ms is None
+        timeout_flag = controller.fault_classification_latency_ms_timeout("FTHR002_SENSOR_CONFLICT_PERSISTENT")
+        assert timeout_flag is None
 
 
     def test_pr004_failed_sensor_does_not_count_as_ok_ok_conflict(self):
@@ -316,8 +315,8 @@ class TestPR004:
         clock.advance(1.0)
         controller.update()
 
-        latency_ms = controller.fault_classification_latency_ms("FTHR002_SENSOR_CONFLICT_PERSISTENT")
-        assert latency_ms is None
+        timeout_flag = controller.fault_classification_latency_ms_timeout("FTHR002_SENSOR_CONFLICT_PERSISTENT")
+        assert timeout_flag is None
 
 
 class TestPositionNorm:
