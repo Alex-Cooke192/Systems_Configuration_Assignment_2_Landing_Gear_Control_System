@@ -1,145 +1,69 @@
 # Landing Gear Control System (LGCS) – Coursework Repository
 
 ## Overview
-This repository contains Python scripts and supporting artefacts developed as part of
-the LGCS coursework assignment. The material supports requirements analysis, performance
-evaluation, fault-handling studies, and presentation artefacts related to the Landing Gear
-Control System.
+This repository contains a complete Python-based simulation and analysis codebase developed for the LGCS coursework. It supports:
 
-All code in this repository is **academic and non-operational**. It is intended solely
-for analysis, illustration, and assessment purposes.
+- Requirements-to-implementation traceability  
+- Deterministic controller behaviour analysis  
+- Performance and timing evaluation  
+- Fault-handling and fault classification studies  
+- Generation of assessment artefacts (logs, reports, presentation support)
+
+All code in this repository is **academic and non-operational**. It is intended solely for analysis, illustration, and assessment purposes.
+
+---
+
+## Safety and Certification Disclaimer
+All artefacts in this repository are produced for academic assessment purposes only.  
+They do **not** represent flight-certified or safety-approved software and must **not** be used in any operational aviation or safety-critical system.
 
 ---
 
 ## Repository Structure
-The repository structure is intentionally minimal at this stage and will evolve as
-artefacts are added during the coursework.
+The repository structure reflects a complete coursework codebase. The intent is to keep it **auditable**, **testable**, and **traceable**, without unnecessary framework complexity.
+
+Typical contents include:
+
+- `tests/`  
+  Unit and performance tests used as objective evidence against requirements (including timing and fault-handling requirements).
+
+- `scripts/` (or top-level runnable scripts)  
+  CLI demos, scenario runners, report/log generation utilities.
+
+- `logs/`  
+  Generated runtime logs (excluded or cleaned as appropriate).
+
+- `reports/`  
+  Generated artefacts used as coursework evidence (plots, summaries, exported results).
+
+- `TRACEABILITY.md`  
+  Primary traceability map linking requirements ↔ code ↔ tests ↔ evidence.
+
+---
+
+## Traceability Approach
+Traceability is demonstrated through a combination of:
+
+- Requirement identifiers referenced in:
+  - Branch names (when appropriate)
+  - Commit messages (recommended)
+  - Code comments / docstrings (where justified)
+  - Tests (as executable evidence)
+  - `TRACEABILITY.md` (source of truth)
+
+- Objective evidence produced by:
+  - Automated test results
+  - Generated logs and reports
+  - Reproducible demo scripts
+
+`TRACEABILITY.md` is treated as the **primary index** and should be updated when new behaviour, tests, or artefacts are added.
 
 ---
 
 ## Branch Naming Convention
 
-Branches are named to reflect **intent and activity**.  
-Requirement identifiers shall only be included when a branch directly targets those
-requirements.
-
----
+Branches are named to reflect **intent and activity**. Requirement identifiers shall only be included when a branch directly targets those requirements.
 
 ### 1. Branches Targeting a Single Requirement
-Use this pattern when a branch directly implements, verifies, or analyses **one**
-specific requirement.
-
-req/<REQUIREMENT-ID>-<short-description>
-
-makefile
-Copy code
-
-Example:
-req/LGCS-FR001-deploy-function
-
-yaml
-Copy code
-
----
-
-### 2. Branches Targeting Multiple Requirements
-Use this pattern when a single change directly affects **multiple related requirements**.
-
-req/<REQUIREMENT-ID-START>-<REQUIREMENT-ID-END>-<short-description>
-
-makefile
-Copy code
-
-Example:
-req/LGCS-SR001-002-altitude-sensor
-
-yaml
-Copy code
-
-Only group requirements when the relationship is clear and defensible.
-
----
-
-### 3. Branches Not Targeting Specific Requirements
-When no direct requirement traceability exists, use a **task-based naming pattern**.
-
-task/<short-description>
-
-makefile
-Copy code
-
-Example:
-task/add_script_header_template
-
-yaml
-Copy code
-
-This pattern shall be used for:
-- Tooling
-- Documentation
-- Refactoring
-- Templates
-- General repository improvements
-
----
-
-### Avoid
-Do **not** name branches after requirements unless they directly implement or verify them:
-
-lgcs-fr001
-feature/gear-deploy
-
-yaml
-Copy code
-
----
-
-## Python Script Header Template
-
-Each Python script shall include a **block comment header** describing its purpose,
-scope, and traceability. The following template must be placed at the top of every
-`.py` file in this repository.
-
-```python
-"""
-Title: <Short descriptive title>
-Author: <Your Name>
-Date Created: <YYYY-MM-DD>
-Last Modified: <YYYY-MM-DD>
-Version: <e.g. 1.0>
-
-Purpose:
-Brief description of what the script does and why it exists.
-
-Targeted Requirements:
-- <Requirement ID>: <Short description>
-(Use "None" if no direct requirement traceability exists.)
-
-Scope and Limitations:
-- Assumptions made in the model or analysis
-- Known limitations or simplifications
-
-Safety Notice:
-This software is for academic and illustrative purposes only.
-It is not flight-certified and must not be used in operational systems.
-
-Dependencies:
-- Python <version>
-- External libraries (if any)
-
-Related Documents:
-- LGCS Requirements Specification
-- Relevant appendix or system document
-"""
-If a script does not target a specific requirement, explicitly state:
-
-
-
-Targeted Requirements:
-- None (supporting analysis or tooling only)
-
-Safety and Certification Disclaimer
-All artefacts in this repository are produced for academic assessment purposes only.
-They do not represent certified software and must not be used in real-world aviation
-or safety-critical systems.
+Use this pattern when a branch directly implements, verifies, or analyses **one** specific requirement:
 
