@@ -103,11 +103,7 @@ state
 
 sens mix ok 0 ok 1
 state
-step 1
-step 1
-step 1
-step 1
-step 1
+step 10000000
 state
 
 sens mix ok 0 ok 0
