@@ -204,8 +204,9 @@ def run_rich_cli(ctx: AppContext) -> int:
 
     annunciator = StateAnnunciator()
 
-    cmd_log_path = Path("logs/cli_commands.csv")
-    recorder = CommandRecorder(filepath=cmd_log_path, clock=ctx.clock)
+    recorder = ctx.command_recorder
+    if recorder is None:
+        raise RuntimeError("CommandRecorder not configured in AppContext")
 
     # Attach annunicator to loop tick callback
     loop._on_tick = annunciator 

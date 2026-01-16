@@ -54,6 +54,7 @@ from landing_gear_controller import LandingGearController
 from app_context import AppContext
 from cli import run_rich_cli
 from cli_support import MutableBool, MutableFloat, PositionSensorBank, ControlLoop
+from command_recorder import CommandRecorder
 
 try:
     from fault_recorder import FaultRecorder
@@ -78,6 +79,13 @@ def setup_signal_handlers(ctx: AppContext):
 
 def initialize() -> AppContext:
     logging.info("Initializing application")
+
+    # Anchor paths and create output directories
+    base_dir = Path(__file__).resolve().parent   # /app in container, repo root locally
+    logs_dir = base_dir / "logs"
+    reports_dir = base_dir / "reports"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    reports_dir.mkdir(parents=True, exist_ok=True)
 
     config = GearConfiguration(
         name="LG-1",
@@ -114,10 +122,12 @@ def initialize() -> AppContext:
 
     def sensors_provider():
         return sensors.get_readings()
+    
+    command_recorder = CommandRecorder(filepath=logs_dir / "cli_commands.csv", clock=clock)
 
     fault_recorder = None
     if FaultRecorder is not None:
-        fault_recorder = FaultRecorder(filepath=Path("logs/fault_log.csv"), clock=clock)
+        fault_recorder = FaultRecorder(filepath=logs_dir / "fault_log.csv", clock=clock)
 
     controller = LandingGearController(
         config=config,
@@ -144,6 +154,8 @@ def initialize() -> AppContext:
         wow=wow,
         sensors=sensors,
         loop=loop,
+        command_recorder=command_recorder, 
+        fault_recorder=fault_recorder
     )
 
 

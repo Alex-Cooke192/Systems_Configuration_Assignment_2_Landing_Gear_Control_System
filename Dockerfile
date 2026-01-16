@@ -14,4 +14,8 @@ CMD ["pytest", "-q"]
 
 # --- runtime stage ---
 FROM base AS runtime
+
+RUN mkdir -p /app/logs /app/reports
+VOLUME ["/app/logs", "/app/reports"]
+
 CMD ["python", "-m", "main"]

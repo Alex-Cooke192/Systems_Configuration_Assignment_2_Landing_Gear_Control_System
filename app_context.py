@@ -45,10 +45,12 @@ or safety-critical systems.
 
 from dataclasses import dataclass
 from threading import Event
-from typing import Callable
+from typing import Callable, Optional
 
 from gear_configuration import GearConfiguration
 from landing_gear_controller import LandingGearController
+from command_recorder import CommandRecorder
+from fault_recorder import FaultRecorder
 
 from cli_support import MutableBool, MutableFloat, PositionSensorBank, ControlLoop
 
@@ -66,6 +68,9 @@ class AppContext:
     wow: MutableBool
     sensors: PositionSensorBank
     loop: ControlLoop
+
+    command_recorder: Optional[CommandRecorder] = None
+    fault_recorder: Optional[FaultRecorder] = None
 
     def shutdown(self) -> None:
         self.shutdown_event.set()
