@@ -14,4 +14,4 @@ CMD ["pytest", "-q"]
 
 # --- runtime stage ---
 FROM base AS runtime
-CMD ["python", "-m", "cli"]
+CMD ["python", "-m", "main"]
