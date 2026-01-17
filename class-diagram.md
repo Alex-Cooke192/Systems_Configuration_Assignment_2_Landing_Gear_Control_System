@@ -1,3 +1,4 @@
+```mermaid
 classDiagram
   direction LR
 
@@ -236,5 +237,4 @@ classDiagram
   LandingGearController --> CommandRecorder : records accepted/rejected commands
   LandingGearController --> AltitudeSimulator : reads altitude input
   LandingGearController --> PositionSensorReading: reads sensor/position input
-
-  
+```
